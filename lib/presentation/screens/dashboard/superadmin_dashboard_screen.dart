@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:inventario_app/core/constants/app_colors.dart';
+import 'package:inventario_app/presentation/screens/dashboard/module_overview_screen.dart';
 
 class SuperadminDashboardScreen extends StatelessWidget {
   const SuperadminDashboardScreen({
@@ -20,21 +21,25 @@ class SuperadminDashboardScreen extends StatelessWidget {
         title: 'Usuarios',
         subtitle: 'Gestiona accesos y permisos',
         icon: Icons.people_alt_outlined,
+        isReady: true,
       ),
       const _DashboardModule(
         title: 'Productos',
         subtitle: 'Consulta y organiza el catalogo',
         icon: Icons.inventory_2_outlined,
+        isReady: true,
       ),
       const _DashboardModule(
         title: 'Inventario',
         subtitle: 'Revisa stock y movimientos',
         icon: Icons.warehouse_outlined,
+        isReady: true,
       ),
       const _DashboardModule(
         title: 'Ventas',
         subtitle: 'Visualiza operaciones recientes',
         icon: Icons.point_of_sale_outlined,
+        isReady: true,
       ),
       const _DashboardModule(
         title: 'Reportes',
@@ -186,6 +191,19 @@ class _DashboardCard extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
         onTap: () {
+          if (module.isReady) {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ModuleOverviewScreen(
+                  title: module.title,
+                  description: _moduleDescription(module.title),
+                  icon: module.icon,
+                  items: _moduleItems(module.title),
+                ),
+              ),
+            );
+            return;
+          }
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('${module.title}: modulo en construccion')),
           );
@@ -234,9 +252,57 @@ class _DashboardModule {
     required this.title,
     required this.subtitle,
     required this.icon,
+    this.isReady = false,
   });
 
   final String title;
   final String subtitle;
   final IconData icon;
+  final bool isReady;
+}
+
+String _moduleDescription(String title) {
+  switch (title) {
+    case 'Usuarios':
+      return 'Base inicial para administrar usuarios, revisar permisos y preparar el mantenimiento de accesos.';
+    case 'Productos':
+      return 'Base inicial para organizar el catalogo, controlar informacion general y preparar futuras operaciones.';
+    case 'Inventario':
+      return 'Base inicial para revisar existencias, movimientos y trazabilidad del stock.';
+    case 'Ventas':
+      return 'Base inicial para consultar operaciones, preparar registros y seguimiento comercial.';
+    default:
+      return 'Modulo base del sistema.';
+  }
+}
+
+List<String> _moduleItems(String title) {
+  switch (title) {
+    case 'Usuarios':
+      return const [
+        'Ver listado general de usuarios',
+        'Preparar alta y edicion de accesos',
+        'Definir perfiles y permisos por rol',
+      ];
+    case 'Productos':
+      return const [
+        'Visualizar catalogo de productos',
+        'Preparar registro de nuevos productos',
+        'Organizar categorias y datos comerciales',
+      ];
+    case 'Inventario':
+      return const [
+        'Consultar stock actual por item',
+        'Preparar movimientos de entrada y salida',
+        'Revisar alertas de existencia minima',
+      ];
+    case 'Ventas':
+      return const [
+        'Consultar resumen de ventas',
+        'Preparar historial de operaciones',
+        'Definir flujo de registro comercial',
+      ];
+    default:
+      return const ['Modulo base del sistema'];
+  }
 }
