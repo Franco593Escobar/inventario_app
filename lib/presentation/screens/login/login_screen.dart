@@ -15,6 +15,13 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passController = TextEditingController();
   bool _isLoading = false;
 
+  @override
+  void dispose() {
+    _usuarioController.dispose();
+    _passController.dispose();
+    super.dispose();
+  }
+
   void _intentarIngresar() async {
     setState(() => _isLoading = true);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -47,8 +54,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthProvider>();
-
     return Scaffold(
       body: Center(
         child: SingleChildScrollView(
@@ -85,22 +90,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: const Text('INGRESAR',
                           style: TextStyle(color: Colors.white)),
                     ),
-              if (auth.errorMessage.isNotEmpty) ...[
-                const SizedBox(height: 20),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red.shade200),
-                  ),
-                  child: Text(
-                    auth.errorMessage,
-                    style: TextStyle(color: Colors.red.shade900),
-                  ),
-                ),
-              ],
             ],
           ),
         ),

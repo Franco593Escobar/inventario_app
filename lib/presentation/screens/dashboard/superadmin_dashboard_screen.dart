@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:inventario_app/core/constants/app_colors.dart';
 import 'package:inventario_app/presentation/screens/dashboard/module_overview_screen.dart';
+import 'package:inventario_app/presentation/screens/products/products_management_screen.dart';
+import 'package:inventario_app/presentation/screens/users/users_management_screen.dart';
 
 class SuperadminDashboardScreen extends StatelessWidget {
   const SuperadminDashboardScreen({
@@ -191,6 +193,24 @@ class _DashboardCard extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
         onTap: () {
+          if (module.title == 'Usuarios') {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const UsersManagementScreen(),
+              ),
+            );
+            return;
+          }
+
+          if (module.title == 'Productos') {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const ProductsManagementScreen(),
+              ),
+            );
+            return;
+          }
+
           if (module.isReady) {
             Navigator.of(context).push(
               MaterialPageRoute(

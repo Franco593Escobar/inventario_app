@@ -23,45 +23,44 @@ class AuthProvider extends ChangeNotifier {
 
   String _normalizeValue(String value) => value.trim().toLowerCase();
 
+  Future<QueryDocumentSnapshot<Map<String, dynamic>>?> _findUserDocument(
+    String usuario,
+  ) async {
+    final normalizedUsuario = _normalizeValue(usuario);
+
+    final exactMatch = await _firestore
+        .collection('usuarios')
+        .where('nombre_usuario', isEqualTo: usuario.trim())
+        .limit(1)
+        .get();
+
+    if (exactMatch.docs.isNotEmpty) {
+      return exactMatch.docs.first;
+    }
+
+    final allUsers = await _firestore.collection('usuarios').get();
+    for (final doc in allUsers.docs) {
+      final storedUser = (doc.data()['nombre_usuario'] ?? '').toString();
+      if (_normalizeValue(storedUser) == normalizedUsuario) {
+        return doc;
+      }
+    }
+
+    return null;
+  }
+
   Future<bool> login(String usuario, String password) async {
     _errorMessage = '';
     try {
-      final normalizedUsuario = _normalizeValue(usuario);
-
-      QuerySnapshot<Map<String, dynamic>> query = await _firestore
-          .collection('usuarios')
-          .where('nombre_usuario', isEqualTo: usuario.trim())
-          .get();
-
-      if (query.docs.isEmpty) {
-        final allUsers = await _firestore.collection('usuarios').get();
-        final matchingDocs = allUsers.docs.where((doc) {
-          final storedUser = (doc.data()['nombre_usuario'] ?? '').toString();
-          return _normalizeValue(storedUser) == normalizedUsuario;
-        }).toList();
-
-        if (matchingDocs.isNotEmpty) {
-          query = FakeQuerySnapshot(matchingDocs);
-        }
-      }
-
-      if (query.docs.isEmpty) {
+      final userDoc = await _findUserDocument(usuario);
+      if (userDoc == null) {
         _status = AuthStatus.unauthenticated;
-        final allUsers = await _firestore.collection('usuarios').get();
-        final visibleUsers = allUsers.docs
-            .map(
-                (doc) => (doc.data()['nombre_usuario'] ?? '').toString().trim())
-            .where((value) => value.isNotEmpty)
-            .toList();
-        final sampleUsers = visibleUsers.take(5).join(', ');
-        _errorMessage = visibleUsers.isEmpty
-            ? 'Usuario "$usuario" no encontrado. La app no ve usuarios en la colección.'
-            : 'Usuario "$usuario" no encontrado. Usuarios visibles: $sampleUsers';
+        _errorMessage = 'Usuario "$usuario" no encontrado';
         notifyListeners();
         return false;
       }
 
-      final userData = query.docs.first.data();
+      final userData = userDoc.data();
       final activo = userData['estado_activo'] ?? false;
       if (!activo) {
         _status = AuthStatus.unauthenticated;
@@ -71,7 +70,7 @@ class AuthProvider extends ChangeNotifier {
       }
 
       if (userData['password'] == password.trim()) {
-        _uid = query.docs.first.id;
+        _uid = userDoc.id;
         _nombreUsuario =
             userData['nombres'] ?? userData['nombre_usuario'] ?? '';
         _rol = userData['rol'] ?? 'vendedor';
@@ -99,23 +98,4 @@ class AuthProvider extends ChangeNotifier {
     _uid = '';
     notifyListeners();
   }
-}
-
-class FakeQuerySnapshot extends QuerySnapshot<Map<String, dynamic>> {
-  FakeQuerySnapshot(this._docs);
-
-  final List<QueryDocumentSnapshot<Map<String, dynamic>>> _docs;
-
-  @override
-  List<QueryDocumentSnapshot<Map<String, dynamic>>> get docs => _docs;
-
-  @override
-  SnapshotMetadata get metadata => throw UnimplementedError();
-
-  @override
-  List<DocumentChange<Map<String, dynamic>>> get docChanges =>
-      throw UnimplementedError();
-
-  @override
-  int get size => _docs.length;
 }
