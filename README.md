@@ -1,16 +1,39 @@
 # inventario_app
 
-A new Flutter project.
+Aplicacion Flutter para gestion de inventario con autenticacion propia basada en Cloud Firestore.
 
-## Getting Started
+## Estado actual
 
-This project is a starting point for a Flutter application.
+- Inicio de sesion funcional contra la coleccion `usuarios`.
+- Resolucion de pantalla inicial segun rol autenticado.
+- Panel inicial para `superadmin` con accesos principales del sistema.
+- Ejecucion validada en web usando `localhost:8080`.
 
-A few resources to get you started if this is your first Flutter project:
+## Flujo de autenticacion
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+El login consulta la coleccion `usuarios` en la base de Firestore nombrada `inventario-bdd`.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Campos esperados por usuario:
+
+- `nombre_usuario`
+- `password`
+- `estado_activo`
+- `rol`
+- `nombres`
+
+Si el usuario se autentica correctamente:
+
+- `superadmin` entra al panel principal de administracion.
+- Otros roles usan una vista autenticada base mientras se implementan sus modulos.
+
+## Ejecucion en web
+
+1. Instala dependencias con `flutter pub get`.
+2. Ejecuta la app con `flutter run -d web-server --debug --web-port 8080`.
+3. Abre `http://localhost:8080`.
+
+## Notas tecnicas
+
+- Firebase se inicializa una sola vez en `main.dart`.
+- La consulta de autenticacion usa la base Firestore nombrada `inventario-bdd`.
+- El panel `superadmin` actual muestra accesos base y deja listos los puntos de extension para los modulos reales.
