@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:inventario_app/data/repositories/cliente_bios_repository.dart';
 
 enum AuthStatus { uninitialized, authenticated, unauthenticated }
 
@@ -11,6 +12,7 @@ class AuthProvider extends ChangeNotifier {
   String _uid = '';
   String _tenantNombre = '';
   String _sucursalNombre = '';
+  String _tipoComercio = 'comercio';
   String _errorMessage = '';
   final FirebaseFirestore _firestore = FirebaseFirestore.instanceFor(
     app: Firebase.app(),
@@ -23,6 +25,7 @@ class AuthProvider extends ChangeNotifier {
   String get uid => _uid;
   String get tenantNombre => _tenantNombre;
   String get sucursalNombre => _sucursalNombre;
+  String get tipoComercio => _tipoComercio;
   String get errorMessage => _errorMessage;
 
   String _normalizeValue(String value) => value.trim().toLowerCase();
@@ -96,6 +99,19 @@ class AuthProvider extends ChangeNotifier {
           'sucursal',
           'bodega_nombre',
         ]);
+        // Leer el cliente BIOS activo para obtener nombre de negocio y tipo
+        try {
+          final clienteActivo = await ClienteBiosRepository().getActivo();
+          if (clienteActivo != null) {
+            _tenantNombre = clienteActivo.nombreNegocio;
+            _tipoComercio = clienteActivo.tipoComercio;
+            _sucursalNombre = _sucursalNombre.isNotEmpty
+                ? _sucursalNombre
+                : clienteActivo.nombreNegocio;
+          }
+        } catch (_) {
+          // Si Firestore falla al leer cliente_bios, usa fallback del usuario
+        }
         _status = AuthStatus.authenticated;
         notifyListeners();
         return true;
@@ -120,6 +136,7 @@ class AuthProvider extends ChangeNotifier {
     _uid = '';
     _tenantNombre = '';
     _sucursalNombre = '';
+    _tipoComercio = 'comercio';
     notifyListeners();
   }
 }

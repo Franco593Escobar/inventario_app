@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:inventario_app/core/constants/app_colors.dart';
+import 'package:inventario_app/presentation/screens/cliente_bios/cliente_bios_screen.dart';
 import 'package:inventario_app/presentation/screens/dashboard/module_overview_screen.dart';
 import 'package:inventario_app/presentation/screens/products/products_management_screen.dart';
 import 'package:inventario_app/presentation/screens/users/users_management_screen.dart';
@@ -10,6 +11,7 @@ class SuperadminDashboardScreen extends StatelessWidget {
     required this.nombreUsuario,
     required this.tenantNombre,
     required this.sucursalNombre,
+    required this.tipoComercio,
     required this.rol,
     required this.onLogout,
   });
@@ -17,6 +19,7 @@ class SuperadminDashboardScreen extends StatelessWidget {
   final String nombreUsuario;
   final String tenantNombre;
   final String sucursalNombre;
+  final String tipoComercio;
   final String rol;
   final VoidCallback onLogout;
 
@@ -44,6 +47,13 @@ class SuperadminDashboardScreen extends StatelessWidget {
     return 'Centro';
   }
 
+  /// Icono del AppBar según tipo de comercio
+  IconData get _tenantIcon => switch (tipoComercio) {
+        'restaurante' => Icons.restaurant_outlined,
+        'comercio' => Icons.store_outlined,
+        _ => Icons.business_outlined,
+      };
+
   @override
   Widget build(BuildContext context) {
     final modules = [
@@ -69,6 +79,12 @@ class SuperadminDashboardScreen extends StatelessWidget {
         title: 'Ventas',
         subtitle: 'Visualiza operaciones recientes',
         icon: Icons.point_of_sale_outlined,
+        isReady: true,
+      ),
+      const _DashboardModule(
+        title: 'Cliente BIOS',
+        subtitle: 'Configura el negocio activo del dashboard',
+        icon: Icons.domain_outlined,
         isReady: true,
       ),
       const _DashboardModule(
@@ -105,8 +121,7 @@ class SuperadminDashboardScreen extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.store_outlined,
-                        size: 15, color: AppColors.primary),
+                    Icon(_tenantIcon, size: 15, color: AppColors.primary),
                     const SizedBox(width: 6),
                     Text(
                       _tenantLabel,
@@ -353,6 +368,15 @@ class _DashboardCard extends StatelessWidget {
             Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => const ProductsManagementScreen(),
+              ),
+            );
+            return;
+          }
+
+          if (module.title == 'Cliente BIOS') {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const ClienteBiosScreen(),
               ),
             );
             return;

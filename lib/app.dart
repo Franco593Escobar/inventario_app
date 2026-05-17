@@ -15,6 +15,7 @@ class InventarioApp extends StatelessWidget {
           nombreUsuario: auth.nombreUsuario,
           tenantNombre: auth.tenantNombre,
           sucursalNombre: auth.sucursalNombre,
+          tipoComercio: auth.tipoComercio,
           rol: auth.rol,
           onLogout: auth.logout,
         );
