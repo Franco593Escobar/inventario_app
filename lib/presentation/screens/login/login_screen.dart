@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:inventario_app/core/constants/app_colors.dart';
+import 'package:inventario_app/data/repositories/usuario_bios_repository.dart';
 import 'package:inventario_app/presentation/providers/auth_provider.dart';
+import 'package:inventario_app/presentation/screens/usuario_bios/usuario_bios_screen.dart';
 
-/// Nombre del cliente que contrata el servicio.
-/// Actualizar cuando se implemente el módulo de Configuración multi-tenant.
-const _kTenantNombre = 'Grupo Ramones';
+/// Contraseña maestra del panel BIOS (solo Franklin).
+/// Cámbiala aquí si necesitas actualizarla.
+const _kBiosMasterPassword = 'BIOS2026\$';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -18,12 +20,81 @@ class _LoginScreenState extends State<LoginScreen> {
   final _usuarioController = TextEditingController();
   final _passController = TextEditingController();
   bool _isLoading = false;
+  Future<String?>? _tenantFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _tenantFuture =
+        UsuarioBiosRepository().getActivo().then((u) => u?.nombreNegocio);
+  }
 
   @override
   void dispose() {
     _usuarioController.dispose();
     _passController.dispose();
     super.dispose();
+  }
+
+  // ── Panel oculto BIOS ────────────────────────────────────
+
+  Future<void> _abrirPanelBIOS() async {
+    final passCtrl = TextEditingController();
+    bool obscure = true;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          title: const Text('Acceso Panel BIOS'),
+          content: TextField(
+            controller: passCtrl,
+            obscureText: obscure,
+            autofocus: true,
+            decoration: InputDecoration(
+              labelText: 'Contraseña',
+              border: const OutlineInputBorder(),
+              suffixIcon: IconButton(
+                icon: Icon(obscure ? Icons.visibility_off : Icons.visibility),
+                onPressed: () => setS(() => obscure = !obscure),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E2E51)),
+              onPressed: () {
+                if (passCtrl.text == _kBiosMasterPassword) {
+                  Navigator.pop(ctx, true);
+                } else {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(
+                      content: Text('Contraseña incorrecta'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              },
+              child:
+                  const Text('Ingresar', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    passCtrl.dispose();
+
+    if (ok == true && mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const UsuarioBiosScreen()),
+      );
+    }
   }
 
   void _intentarIngresar() async {
@@ -181,20 +252,45 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Since 2026',
-            style: TextStyle(
-              color: Color(0xFFB0BEC5),
-              fontSize: 12,
-            ),
+          Row(
+            children: [
+              const Text(
+                'Since 2026',
+                style: TextStyle(
+                  color: Color(0xFFB0BEC5),
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(width: 10),
+              // Botón oculto — solo Franklin sabe que está aquí
+              GestureDetector(
+                onTap: _abrirPanelBIOS,
+                child: const Text(
+                  '·',
+                  style: TextStyle(
+                    color: Colors.white12,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 6),
-          Text(
-            '\u00ae By $_kTenantNombre - Todos los Derechos Reservados \u00a9',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.52),
-              fontSize: 11,
-            ),
+          FutureBuilder<String?>(
+            future: _tenantFuture,
+            builder: (context, snapshot) {
+              final nombre = snapshot.data;
+              if (nombre == null || nombre.isEmpty) {
+                return const SizedBox.shrink();
+              }
+              return Text(
+                '\u00ae By $nombre - Todos los Derechos Reservados \u00a9',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.52),
+                  fontSize: 11,
+                ),
+              );
+            },
           ),
         ],
       ),

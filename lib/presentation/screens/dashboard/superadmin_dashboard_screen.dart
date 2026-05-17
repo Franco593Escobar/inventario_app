@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:inventario_app/core/constants/app_colors.dart';
-import 'package:inventario_app/presentation/screens/cliente_bios/cliente_bios_screen.dart';
+import 'package:inventario_app/presentation/screens/usuario_bios/usuario_bios_screen.dart';
 import 'package:inventario_app/presentation/screens/dashboard/module_overview_screen.dart';
 import 'package:inventario_app/presentation/screens/products/products_management_screen.dart';
 import 'package:inventario_app/presentation/screens/users/users_management_screen.dart';
@@ -82,7 +82,7 @@ class SuperadminDashboardScreen extends StatelessWidget {
         isReady: true,
       ),
       const _DashboardModule(
-        title: 'Cliente BIOS',
+        title: 'Negocios BIOS',
         subtitle: 'Configura el negocio activo del dashboard',
         icon: Icons.domain_outlined,
         isReady: true,
@@ -373,10 +373,10 @@ class _DashboardCard extends StatelessWidget {
             return;
           }
 
-          if (module.title == 'Cliente BIOS') {
+          if (module.title == 'Negocios BIOS') {
             Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => const ClienteBiosScreen(),
+                builder: (_) => const UsuarioBiosScreen(),
               ),
             );
             return;

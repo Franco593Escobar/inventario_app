@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:inventario_app/data/repositories/cliente_bios_repository.dart';
+import 'package:inventario_app/data/repositories/usuario_bios_repository.dart';
 
 enum AuthStatus { uninitialized, authenticated, unauthenticated }
 
@@ -101,7 +101,7 @@ class AuthProvider extends ChangeNotifier {
         ]);
         // Leer el cliente BIOS activo para obtener nombre de negocio y tipo
         try {
-          final clienteActivo = await ClienteBiosRepository().getActivo();
+          final clienteActivo = await UsuarioBiosRepository().getActivo();
           if (clienteActivo != null) {
             _tenantNombre = clienteActivo.nombreNegocio;
             _tipoComercio = clienteActivo.tipoComercio;

@@ -1,22 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:inventario_app/core/constants/app_colors.dart';
-import 'package:inventario_app/data/models/cliente_bios.dart';
-import 'package:inventario_app/data/repositories/cliente_bios_repository.dart';
+import 'package:inventario_app/data/models/app_user.dart';
+import 'package:inventario_app/data/models/usuario_bios.dart';
+import 'package:inventario_app/data/repositories/user_repository.dart';
+import 'package:inventario_app/data/repositories/usuario_bios_repository.dart';
 import 'package:inventario_app/presentation/providers/auth_provider.dart';
 import 'package:inventario_app/presentation/widgets/admin_module_ui.dart';
 
-class ClienteBiosScreen extends StatefulWidget {
-  const ClienteBiosScreen({super.key});
+class UsuarioBiosScreen extends StatefulWidget {
+  const UsuarioBiosScreen({super.key});
 
   @override
-  State<ClienteBiosScreen> createState() => _ClienteBiosScreenState();
+  State<UsuarioBiosScreen> createState() => _UsuarioBiosScreenState();
 }
 
-class _ClienteBiosScreenState extends State<ClienteBiosScreen> {
-  final _repository = ClienteBiosRepository();
+class _UsuarioBiosScreenState extends State<UsuarioBiosScreen> {
+  final _repository = UsuarioBiosRepository();
+  final _userRepository = UserRepository();
   final _searchController = TextEditingController();
-  List<ClienteBios> _cachedClientes = [];
+  List<UsuarioBios> _cachedUsuarios = [];
 
   @override
   void dispose() {
@@ -33,58 +36,63 @@ class _ClienteBiosScreenState extends State<ClienteBiosScreen> {
           : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
       .join(' ');
 
-  List<ClienteBios> _filterClientes(List<ClienteBios> all) {
+  List<UsuarioBios> _filterUsuarios(List<UsuarioBios> all) {
     final q = _searchController.text.trim().toLowerCase();
     if (q.isEmpty) return all;
-    return all.where((c) {
-      return c.nombreNegocio.toLowerCase().contains(q) ||
-          c.identificador.toLowerCase().contains(q) ||
-          c.cedula.toLowerCase().contains(q) ||
-          c.nombres.toLowerCase().contains(q) ||
-          c.apellidos.toLowerCase().contains(q) ||
-          c.tipoComercio.toLowerCase().contains(q) ||
-          (c.email?.toLowerCase().contains(q) ?? false);
+    return all.where((u) {
+      return u.nombreNegocio.toLowerCase().contains(q) ||
+          u.identificador.toLowerCase().contains(q) ||
+          u.cedula.toLowerCase().contains(q) ||
+          u.nombres.toLowerCase().contains(q) ||
+          u.apellidos.toLowerCase().contains(q) ||
+          u.tipoComercio.toLowerCase().contains(q) ||
+          u.dueno.toLowerCase().contains(q) ||
+          (u.email?.toLowerCase().contains(q) ?? false);
     }).toList();
   }
 
   // ── Seleccionar como activo ───────────────────────────────
 
-  Future<void> _seleccionarActivo(ClienteBios cliente) async {
-    if (cliente.activo) return; // ya es el activo
-    await _repository.setActivo(cliente.id);
+  Future<void> _seleccionarActivo(UsuarioBios usuario) async {
+    if (usuario.activo) return;
+    await _repository.setActivo(usuario.id);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(
-          '"${cliente.nombreNegocio}" es ahora el cliente activo del dashboard.'),
+          '"${usuario.nombreNegocio}" es ahora el negocio activo del dashboard.'),
       backgroundColor: AppColors.success,
     ));
   }
 
   // ── Dialogo Crear / Editar ────────────────────────────────
 
-  Future<void> _openForm([ClienteBios? cliente]) async {
-    final auditor =
-        Provider.of<AuthProvider>(context, listen: false).nombreUsuario;
+  Future<void> _openForm([UsuarioBios? usuario]) async {
+    final auditor = context.mounted
+        ? Provider.of<AuthProvider>(context, listen: false).nombreUsuario
+        : 'BIOS';
 
     final identificadorCtrl =
-        TextEditingController(text: cliente?.identificador ?? '');
-    final cedulaCtrl = TextEditingController(text: cliente?.cedula ?? '');
+        TextEditingController(text: usuario?.identificador ?? '');
+    final cedulaCtrl = TextEditingController(text: usuario?.cedula ?? '');
     final nombreNegocioCtrl =
-        TextEditingController(text: cliente?.nombreNegocio ?? '');
-    final nombresCtrl = TextEditingController(text: cliente?.nombres ?? '');
-    final apellidosCtrl = TextEditingController(text: cliente?.apellidos ?? '');
+        TextEditingController(text: usuario?.nombreNegocio ?? '');
+    final duenoCtrl = TextEditingController(text: usuario?.dueno ?? '');
+    final nombresCtrl = TextEditingController(text: usuario?.nombres ?? '');
+    final apellidosCtrl = TextEditingController(text: usuario?.apellidos ?? '');
     final nombreUsuarioCtrl =
-        TextEditingController(text: cliente?.nombreUsuario ?? '');
-    final passwordCtrl = TextEditingController(text: cliente?.password ?? '');
-    final emailCtrl = TextEditingController(text: cliente?.email ?? '');
-    final telefonoCtrl = TextEditingController(text: cliente?.telefono ?? '');
-    final celularCtrl = TextEditingController(text: cliente?.celular ?? '');
-    final direccionCtrl = TextEditingController(text: cliente?.direccion ?? '');
+        TextEditingController(text: usuario?.nombreUsuario ?? '');
+    final passwordCtrl = TextEditingController(text: usuario?.password ?? '');
+    final emailCtrl = TextEditingController(text: usuario?.email ?? '');
+    final telefonoCtrl = TextEditingController(text: usuario?.telefono ?? '');
+    final celularCtrl = TextEditingController(text: usuario?.celular ?? '');
+    final direccionCtrl = TextEditingController(text: usuario?.direccion ?? '');
 
     final formKey = GlobalKey<FormState>();
-    final DateTime fechaCreacion = cliente?.fechaCreacion ?? DateTime.now();
+    final DateTime fechaCreacion = usuario?.fechaCreacion ?? DateTime.now();
     String selectedTipo =
-        cliente?.tipoComercio ?? ClienteBios.tiposComercio.first;
+        usuario?.tipoComercio ?? UsuarioBios.tiposComercio.first;
+    String selectedPago =
+        usuario?.pagoServicio ?? UsuarioBios.pagoServicios.first;
     String? warnId;
 
     final saved = await showDialog<bool>(
@@ -93,30 +101,31 @@ class _ClienteBiosScreenState extends State<ClienteBiosScreen> {
       builder: (dialogCtx) => StatefulBuilder(
         builder: (dialogCtx, setDialogState) {
           void checkDupId(String v) {
-            final exists = _cachedClientes.any((c) =>
-                c.identificador.toLowerCase() == v.trim().toLowerCase() &&
-                c.id != (cliente?.id ?? ''));
+            final exists = _cachedUsuarios.any((u) =>
+                u.identificador.toLowerCase() == v.trim().toLowerCase() &&
+                u.id != (usuario?.id ?? ''));
             setDialogState(() =>
                 warnId = exists ? 'El identificador "$v" ya existe.' : null);
           }
 
           Future<void> guardar() async {
             if (!formKey.currentState!.validate()) return;
-            final draft = ClienteBios(
-              id: cliente?.id ?? '',
+
+            final draft = UsuarioBios(
+              id: usuario?.id ?? '',
               identificador: identificadorCtrl.text.trim(),
               cedula: cedulaCtrl.text.trim(),
               nombreNegocio: nombreNegocioCtrl.text.trim(),
               tipoComercio: selectedTipo,
-              dueno: '',
-              pagoServicio: 'indefinido',
+              dueno: duenoCtrl.text.trim(),
+              pagoServicio: selectedPago,
               nombres: nombresCtrl.text.trim(),
               apellidos: apellidosCtrl.text.trim(),
               nombreUsuario: nombreUsuarioCtrl.text.trim(),
               password: passwordCtrl.text.trim(),
-              rol: 'cliente',
+              rol: 'admin',
               estadoActivo: true,
-              activo: cliente?.activo ?? false,
+              activo: usuario?.activo ?? false,
               fechaCreacion: fechaCreacion,
               email:
                   emailCtrl.text.trim().isEmpty ? null : emailCtrl.text.trim(),
@@ -129,15 +138,41 @@ class _ClienteBiosScreenState extends State<ClienteBiosScreen> {
               direccion: direccionCtrl.text.trim().isEmpty
                   ? null
                   : direccionCtrl.text.trim(),
-              creadoPor: cliente?.creadoPor ?? auditor,
+              creadoPor: usuario?.creadoPor ?? auditor,
               modificadoPor: auditor,
             );
+
+            // Guardar en usuario_bios y obtener el id del documento
             await _repository.save(draft);
+
+            // Si es registro nuevo, crear también el admin en la colección usuarios
+            if (usuario == null) {
+              final adminUser = AppUser(
+                id: '',
+                identificador: draft.identificador,
+                cedula: draft.cedula,
+                nombreUsuario: draft.nombreUsuario,
+                nombres: draft.nombres,
+                apellidos: draft.apellidos,
+                password: draft.password,
+                rol: 'admin',
+                estadoActivo: true,
+                fechaCreacion: fechaCreacion,
+                email: draft.email,
+                telefono: draft.telefono,
+                celular: draft.celular,
+                direccion: draft.direccion,
+                creadoPor: auditor,
+                modificadoPor: auditor,
+              );
+              await _userRepository.createUser(adminUser);
+            }
+
             if (dialogCtx.mounted) Navigator.of(dialogCtx).pop(true);
           }
 
           return AdminFormDialog(
-            title: cliente == null ? 'Nuevo Cliente BIOS' : 'Editar Cliente',
+            title: usuario == null ? 'Nuevo Negocio BIOS' : 'Editar Negocio',
             body: Form(
               key: formKey,
               child: Column(
@@ -175,6 +210,13 @@ class _ClienteBiosScreenState extends State<ClienteBiosScreen> {
                       validator: (v) =>
                           (v == null || v.trim().isEmpty) ? 'Requerido' : null,
                     ),
+                    _buildField(
+                      controller: duenoCtrl,
+                      label: 'DUEÑO DEL NEGOCIO *',
+                      hint: 'ej. Fabian Ramon',
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+                    ),
                     // Tipo de comercio
                     Padding(
                       padding: const EdgeInsets.only(bottom: 14),
@@ -185,10 +227,10 @@ class _ClienteBiosScreenState extends State<ClienteBiosScreen> {
                           border: OutlineInputBorder(),
                           isDense: true,
                         ),
-                        items: ClienteBios.tiposComercio.map((t) {
+                        items: UsuarioBios.tiposComercio.map((t) {
                           return DropdownMenuItem(
                             value: t,
-                            child: Text(ClienteBios.tipoLabel[t] ?? t),
+                            child: Text(UsuarioBios.tipoLabel[t] ?? t),
                           );
                         }).toList(),
                         onChanged: (v) {
@@ -198,16 +240,37 @@ class _ClienteBiosScreenState extends State<ClienteBiosScreen> {
                         },
                       ),
                     ),
+                    // Plan de pago
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: DropdownButtonFormField<String>(
+                        value: selectedPago,
+                        decoration: const InputDecoration(
+                          labelText: 'PLAN DE PAGO *',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        items: UsuarioBios.pagoServicios.map((p) {
+                          return DropdownMenuItem(
+                            value: p,
+                            child: Text(UsuarioBios.pagoLabel[p] ?? p),
+                          );
+                        }).toList(),
+                        onChanged: (v) {
+                          if (v != null) {
+                            setDialogState(() => selectedPago = v);
+                          }
+                        },
+                      ),
+                    ),
                     _buildField(
                       controller: identificadorCtrl,
                       label: 'IDENTIFICADOR *',
-                      hint: 'ej. C01',
+                      hint: 'ej. N01',
                       validator: (v) {
-                        if (v == null || v.trim().isEmpty) {
-                          return 'Requerido';
-                        }
+                        if (v == null || v.trim().isEmpty) return 'Requerido';
                         if (!RegExp(r'^[A-Za-z]\d+$').hasMatch(v.trim())) {
-                          return 'Formato: letra + número, ej. C01';
+                          return 'Formato: letra + número, ej. N01';
                         }
                         return null;
                       },
@@ -274,10 +337,34 @@ class _ClienteBiosScreenState extends State<ClienteBiosScreen> {
                   ]),
 
                   _buildSection('Acceso al sistema', [
+                    if (usuario == null)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.blue.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline,
+                                color: Colors.blue.shade700, size: 16),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                'Al crear el negocio, se genera automáticamente el usuario admin con estas credenciales.',
+                                style: TextStyle(
+                                    color: Colors.blue.shade800, fontSize: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     _buildField(
                       controller: nombreUsuarioCtrl,
-                      label: 'USUARIO *',
-                      hint: 'nombre de acceso',
+                      label: 'USUARIO ADMIN *',
+                      hint: 'ej. 593br-bframon',
                       validator: (v) =>
                           (v == null || v.trim().isEmpty) ? 'Requerido' : null,
                     ),
@@ -323,7 +410,7 @@ class _ClienteBiosScreenState extends State<ClienteBiosScreen> {
                   foregroundColor: Colors.white,
                 ),
                 onPressed: guardar,
-                child: Text(cliente == null ? 'Guardar' : 'Actualizar'),
+                child: Text(usuario == null ? 'Guardar' : 'Actualizar'),
               ),
             ],
           );
@@ -335,6 +422,7 @@ class _ClienteBiosScreenState extends State<ClienteBiosScreen> {
       identificadorCtrl.dispose();
       cedulaCtrl.dispose();
       nombreNegocioCtrl.dispose();
+      duenoCtrl.dispose();
       nombresCtrl.dispose();
       apellidosCtrl.dispose();
       nombreUsuarioCtrl.dispose();
@@ -347,9 +435,9 @@ class _ClienteBiosScreenState extends State<ClienteBiosScreen> {
 
     if (saved == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(cliente == null
-            ? 'Cliente registrado correctamente.'
-            : 'Cliente actualizado correctamente.'),
+        content: Text(usuario == null
+            ? 'Negocio registrado y usuario admin creado.'
+            : 'Negocio actualizado correctamente.'),
         backgroundColor: AppColors.success,
       ));
     }
@@ -357,13 +445,13 @@ class _ClienteBiosScreenState extends State<ClienteBiosScreen> {
 
   // ── Eliminar ──────────────────────────────────────────────
 
-  Future<void> _deleteCliente(ClienteBios cliente) async {
+  Future<void> _deleteUsuario(UsuarioBios usuario) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Eliminar cliente'),
+        title: const Text('Eliminar negocio'),
         content: Text(
-            '¿Eliminar "${cliente.nombreNegocio}"? Esta acción no se puede deshacer.'),
+            '¿Eliminar "${usuario.nombreNegocio}"? Esta acción no se puede deshacer.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -378,7 +466,7 @@ class _ClienteBiosScreenState extends State<ClienteBiosScreen> {
       ),
     );
     if (confirm == true) {
-      await _repository.delete(cliente.id);
+      await _repository.delete(usuario.id);
     }
   }
 
@@ -386,7 +474,7 @@ class _ClienteBiosScreenState extends State<ClienteBiosScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<ClienteBios>>(
+    return StreamBuilder<List<UsuarioBios>>(
       stream: _repository.watchAll(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
@@ -406,20 +494,20 @@ class _ClienteBiosScreenState extends State<ClienteBiosScreen> {
           );
         }
 
-        final clientes = snapshot.data!;
-        if (clientes != _cachedClientes) {
+        final usuarios = snapshot.data!;
+        if (usuarios != _cachedUsuarios) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) setState(() => _cachedClientes = clientes);
+            if (mounted) setState(() => _cachedUsuarios = usuarios);
           });
         }
-        final filtered = _filterClientes(clientes);
-        final activos = clientes.where((c) => c.activo).length;
-        final total = clientes.length;
+        final filtered = _filterUsuarios(usuarios);
+        final activos = usuarios.where((u) => u.activo).length;
+        final total = usuarios.length;
 
         return AdminModuleShell(
-          title: 'Clientes BIOS',
+          title: 'Negocios BIOS',
           subtitle:
-              'Gestiona los negocios que contratan el servicio. Elige el cliente activo para que aparezca en el dashboard.',
+              'Gestiona los negocios que contratan el servicio. Elige el negocio activo para que aparezca en el dashboard.',
           metricChips: [
             AdminMetricChip(label: 'Total', value: total.toString()),
             AdminMetricChip(
@@ -427,14 +515,14 @@ class _ClienteBiosScreenState extends State<ClienteBiosScreen> {
                 value: activos > 0 ? 'Sí' : 'Ninguno'),
           ],
           primaryAction: AdminPrimaryButton(
-            label: 'Nuevo Cliente',
+            label: 'Nuevo Negocio',
             icon: Icons.add,
             onPressed: () => _openForm(),
           ),
           filters: TextField(
             controller: _searchController,
             decoration: const InputDecoration(
-              hintText: 'Buscar por nombre, tipo, cédula…',
+              hintText: 'Buscar por nombre, dueño, tipo, cédula…',
               prefixIcon: Icon(Icons.search),
               border: OutlineInputBorder(),
               isDense: true,
@@ -446,7 +534,7 @@ class _ClienteBiosScreenState extends State<ClienteBiosScreen> {
                   child: Padding(
                     padding: EdgeInsets.all(32),
                     child: Text(
-                      'No se encontraron clientes.',
+                      'No se encontraron negocios.',
                       style: TextStyle(color: Colors.grey),
                     ),
                   ),
@@ -456,10 +544,10 @@ class _ClienteBiosScreenState extends State<ClienteBiosScreen> {
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: filtered.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (_, i) => _ClienteRowCard(
-                    cliente: filtered[i],
+                  itemBuilder: (_, i) => _UsuarioRowCard(
+                    usuario: filtered[i],
                     onEdit: () => _openForm(filtered[i]),
-                    onDelete: () => _deleteCliente(filtered[i]),
+                    onDelete: () => _deleteUsuario(filtered[i]),
                     onSeleccionar: () => _seleccionarActivo(filtered[i]),
                     capitalizarNombre: _capitalizarNombre,
                   ),
@@ -470,255 +558,26 @@ class _ClienteBiosScreenState extends State<ClienteBiosScreen> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Row card de cada cliente
-// ─────────────────────────────────────────────────────────────
-
-class _ClienteRowCard extends StatelessWidget {
-  const _ClienteRowCard({
-    required this.cliente,
-    required this.onEdit,
-    required this.onDelete,
-    required this.onSeleccionar,
-    required this.capitalizarNombre,
-  });
-
-  final ClienteBios cliente;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-  final VoidCallback onSeleccionar;
-  final String Function(String) capitalizarNombre;
-
-  static IconData _iconForTipo(String tipo) => switch (tipo) {
-        'restaurante' => Icons.restaurant_outlined,
-        'comercio' => Icons.store_outlined,
-        _ => Icons.business_outlined,
-      };
-
-  @override
-  Widget build(BuildContext context) {
-    final activo = cliente.activo;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: activo
-              ? AppColors.success.withOpacity(0.6)
-              : const Color(0xFFE8EDF5),
-          width: activo ? 2 : 1,
-        ),
-        boxShadow: const [
-          BoxShadow(
-              color: Color(0x0A000000), blurRadius: 8, offset: Offset(0, 4)),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            // Icono tipo
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: activo
-                    ? AppColors.success.withOpacity(0.1)
-                    : const Color(0xFFEAF0FF),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                _iconForTipo(cliente.tipoComercio),
-                color: activo ? AppColors.success : AppColors.primary,
-                size: 26,
-              ),
-            ),
-            const SizedBox(width: 14),
-
-            // Info principal
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        capitalizarNombre(cliente.nombreNegocio),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      _TipoBadge(tipo: cliente.tipoComercio),
-                      if (activo) ...[
-                        const SizedBox(width: 8),
-                        const _ActiveBadge(),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${capitalizarNombre(cliente.nombres)} ${capitalizarNombre(cliente.apellidos)}  •  Cédula: ${cliente.cedula}',
-                    style: TextStyle(
-                        color: Colors.blueGrey.shade600, fontSize: 13),
-                  ),
-                  if (cliente.email != null && cliente.email!.isNotEmpty)
-                    Text(
-                      cliente.email!,
-                      style: TextStyle(
-                          color: Colors.blueGrey.shade400, fontSize: 12),
-                    ),
-                ],
-              ),
-            ),
-
-            // Acciones
-            Wrap(
-              spacing: 4,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                // Botón "Seleccionar como activo"
-                if (!activo)
-                  Tooltip(
-                    message: 'Seleccionar como cliente activo',
-                    child: OutlinedButton.icon(
-                      onPressed: onSeleccionar,
-                      icon: const Icon(Icons.check_circle_outline, size: 16),
-                      label: const Text('Activar'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.success,
-                        side: BorderSide(
-                            color: AppColors.success.withOpacity(0.5)),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 6),
-                        textStyle: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  )
-                else
-                  Tooltip(
-                    message: 'Este cliente está activo en el dashboard',
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: AppColors.success.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.check_circle,
-                              color: AppColors.success, size: 16),
-                          const SizedBox(width: 4),
-                          Text('Activo',
-                              style: TextStyle(
-                                  color: AppColors.success,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 12)),
-                        ],
-                      ),
-                    ),
-                  ),
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined),
-                  color: AppColors.primary,
-                  tooltip: 'Editar',
-                  onPressed: onEdit,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline),
-                  color: Colors.red,
-                  tooltip: 'Eliminar',
-                  onPressed: onDelete,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────
-// Chips auxiliares
-// ─────────────────────────────────────────────────────────────
-
-class _TipoBadge extends StatelessWidget {
-  const _TipoBadge({required this.tipo});
-  final String tipo;
-
-  static Color _color(String tipo) => switch (tipo) {
-        'restaurante' => const Color(0xFFF97316),
-        'comercio' => const Color(0xFF2563EB),
-        _ => Colors.grey,
-      };
-
-  @override
-  Widget build(BuildContext context) {
-    final c = _color(tipo);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: c.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: c.withOpacity(0.3)),
-      ),
-      child: Text(
-        ClienteBios.tipoLabel[tipo] ?? tipo,
-        style: TextStyle(color: c, fontSize: 11, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-}
-
-class _ActiveBadge extends StatelessWidget {
-  const _ActiveBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: AppColors.success.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        'En dashboard',
-        style: TextStyle(
-            color: AppColors.success,
-            fontSize: 11,
-            fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────
-// Helpers de construcción del formulario
-// ─────────────────────────────────────────────────────────────
+// ── Helpers de formulario ────────────────────────────────────
 
 Widget _buildSection(String title, List<Widget> children) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Padding(
-        padding: const EdgeInsets.only(top: 8, bottom: 12),
+        padding: const EdgeInsets.only(bottom: 10, top: 4),
         child: Text(
           title,
           style: const TextStyle(
-            fontSize: 13,
             fontWeight: FontWeight.bold,
-            color: AppColors.primary,
-            letterSpacing: 0.5,
+            fontSize: 13,
+            color: Color(0xFF2563EB),
+            letterSpacing: 0.4,
           ),
         ),
       ),
       ...children,
-      const Divider(height: 28),
+      const SizedBox(height: 8),
     ],
   );
 }
@@ -727,10 +586,10 @@ Widget _buildField({
   required TextEditingController controller,
   required String label,
   String? hint,
-  String? Function(String?)? validator,
-  void Function(String)? onChanged,
   bool obscureText = false,
   int maxLines = 1,
+  String? Function(String?)? validator,
+  void Function(String)? onChanged,
 }) {
   return Padding(
     padding: const EdgeInsets.only(bottom: 14),
@@ -748,4 +607,164 @@ Widget _buildField({
       ),
     ),
   );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Row card de cada negocio
+// ─────────────────────────────────────────────────────────────
+
+class _UsuarioRowCard extends StatelessWidget {
+  const _UsuarioRowCard({
+    required this.usuario,
+    required this.onEdit,
+    required this.onDelete,
+    required this.onSeleccionar,
+    required this.capitalizarNombre,
+  });
+
+  final UsuarioBios usuario;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final VoidCallback onSeleccionar;
+  final String Function(String) capitalizarNombre;
+
+  static IconData _iconForTipo(String tipo) => switch (tipo) {
+        'restaurante' => Icons.restaurant_outlined,
+        'comercio' => Icons.store_outlined,
+        _ => Icons.business_outlined,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final activo = usuario.activo;
+
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: activo ? AppColors.success : Colors.grey.shade200,
+          width: activo ? 2.0 : 1.0,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          // Icono por tipo
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: activo
+                  ? AppColors.success.withOpacity(0.1)
+                  : Colors.blueGrey.shade50,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              _iconForTipo(usuario.tipoComercio),
+              color: activo ? AppColors.success : Colors.blueGrey,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 14),
+
+          // Info principal
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      capitalizarNombre(usuario.nombreNegocio),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    if (activo) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.success,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Text(
+                          'ACTIVO',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'Dueño: ${capitalizarNombre(usuario.dueno)}  ·  '
+                  '${UsuarioBios.tipoLabel[usuario.tipoComercio] ?? usuario.tipoComercio}  ·  '
+                  'Pago: ${UsuarioBios.pagoLabel[usuario.pagoServicio] ?? usuario.pagoServicio}',
+                  style:
+                      TextStyle(color: Colors.blueGrey.shade600, fontSize: 12),
+                ),
+                Text(
+                  'Admin: ${usuario.nombreUsuario}  ·  ID: ${usuario.identificador}',
+                  style:
+                      TextStyle(color: Colors.blueGrey.shade400, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+
+          // Acciones
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Botón Activar / Activo
+              if (!activo)
+                OutlinedButton.icon(
+                  onPressed: onSeleccionar,
+                  icon: const Icon(Icons.check_circle_outline, size: 16),
+                  label: const Text('Activar'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.success,
+                    side: BorderSide(color: AppColors.success),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    textStyle: const TextStyle(fontSize: 12),
+                  ),
+                )
+              else
+                OutlinedButton.icon(
+                  onPressed: null,
+                  icon: const Icon(Icons.check_circle, size: 16),
+                  label: const Text('Activo'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.success,
+                    side: BorderSide(color: AppColors.success.withOpacity(0.4)),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    textStyle: const TextStyle(fontSize: 12),
+                  ),
+                ),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: onEdit,
+                icon: const Icon(Icons.edit_outlined),
+                tooltip: 'Editar',
+                color: Colors.blueGrey,
+              ),
+              IconButton(
+                onPressed: onDelete,
+                icon: const Icon(Icons.delete_outline),
+                tooltip: 'Eliminar',
+                color: Colors.red,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
