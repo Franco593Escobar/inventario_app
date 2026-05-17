@@ -13,6 +13,8 @@ class InventarioApp extends StatelessWidget {
       case 'superadmin':
         return SuperadminDashboardScreen(
           nombreUsuario: auth.nombreUsuario,
+          tenantNombre: auth.tenantNombre,
+          sucursalNombre: auth.sucursalNombre,
           rol: auth.rol,
           onLogout: auth.logout,
         );

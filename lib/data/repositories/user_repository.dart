@@ -25,7 +25,11 @@ class UserRepository {
   }
 
   Future<void> createUser(AppUser user) async {
-    await _usuariosCollection.add(user.toMap());
+    await _usuariosCollection.add(
+      user
+          .copyWith(fechaCreacion: user.fechaCreacion ?? DateTime.now())
+          .toMap(),
+    );
   }
 
   Future<void> updateUser(AppUser user) async {

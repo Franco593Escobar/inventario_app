@@ -9,6 +9,8 @@ class AuthProvider extends ChangeNotifier {
   String _nombreUsuario = '';
   String _rol = '';
   String _uid = '';
+  String _tenantNombre = '';
+  String _sucursalNombre = '';
   String _errorMessage = '';
   final FirebaseFirestore _firestore = FirebaseFirestore.instanceFor(
     app: Firebase.app(),
@@ -19,9 +21,19 @@ class AuthProvider extends ChangeNotifier {
   String get nombreUsuario => _nombreUsuario;
   String get rol => _rol;
   String get uid => _uid;
+  String get tenantNombre => _tenantNombre;
+  String get sucursalNombre => _sucursalNombre;
   String get errorMessage => _errorMessage;
 
   String _normalizeValue(String value) => value.trim().toLowerCase();
+
+  String _readFirstNonEmpty(Map<String, dynamic> data, List<String> keys) {
+    for (final key in keys) {
+      final value = data[key]?.toString().trim() ?? '';
+      if (value.isNotEmpty) return value;
+    }
+    return '';
+  }
 
   Future<QueryDocumentSnapshot<Map<String, dynamic>>?> _findUserDocument(
     String usuario,
@@ -74,6 +86,16 @@ class AuthProvider extends ChangeNotifier {
         _nombreUsuario =
             userData['nombres'] ?? userData['nombre_usuario'] ?? '';
         _rol = userData['rol'] ?? 'vendedor';
+        _tenantNombre = _readFirstNonEmpty(userData, const [
+          'empresa_nombre',
+          'negocio_nombre',
+          'tenant_nombre',
+        ]);
+        _sucursalNombre = _readFirstNonEmpty(userData, const [
+          'sucursal_nombre',
+          'sucursal',
+          'bodega_nombre',
+        ]);
         _status = AuthStatus.authenticated;
         notifyListeners();
         return true;
@@ -96,6 +118,8 @@ class AuthProvider extends ChangeNotifier {
     _nombreUsuario = '';
     _rol = '';
     _uid = '';
+    _tenantNombre = '';
+    _sucursalNombre = '';
     notifyListeners();
   }
 }
