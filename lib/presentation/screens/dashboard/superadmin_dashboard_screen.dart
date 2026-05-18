@@ -40,11 +40,11 @@ class SuperadminDashboardScreen extends StatelessWidget {
   }
 
   String get _tenantLabel {
+    // Superadmin siempre muestra el nombre del sistema
+    if (rol.toLowerCase() == 'superadmin') return 'Liris';
     if (tenantNombre.trim().isNotEmpty) {
       return _capitalizarNombre(tenantNombre.trim());
     }
-    // Superadmin es el dueño de BIOS Soluciones Informáticas
-    if (rol.toLowerCase() == 'superadmin') return 'BIOS';
     return 'Mi Negocio';
   }
 
@@ -183,7 +183,7 @@ class SuperadminDashboardScreen extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                 ],
-                Text(isSuperadmin ? 'Centro de Mando' : _tenantLabel),
+                Text(isSuperadmin ? 'Liris' : _tenantLabel),
               ],
             ),
             actions: [
