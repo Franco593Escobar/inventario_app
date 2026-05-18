@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:inventario_app/core/constants/app_colors.dart';
-import 'package:inventario_app/data/repositories/usuario_bios_repository.dart';
 import 'package:inventario_app/presentation/providers/auth_provider.dart';
 import 'package:inventario_app/presentation/screens/usuario_bios/usuario_bios_screen.dart';
 
@@ -20,15 +19,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _usuarioController = TextEditingController();
   final _passController = TextEditingController();
   bool _isLoading = false;
-  Future<String?>? _tenantFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _tenantFuture =
-        UsuarioBiosRepository().getActivo().then((u) => u?.nombreNegocio);
-  }
-
   @override
   void dispose() {
     _usuarioController.dispose();
@@ -276,21 +266,12 @@ class _LoginScreenState extends State<LoginScreen> {
             ],
           ),
           const SizedBox(height: 6),
-          FutureBuilder<String?>(
-            future: _tenantFuture,
-            builder: (context, snapshot) {
-              final nombre = snapshot.data;
-              if (nombre == null || nombre.isEmpty) {
-                return const SizedBox.shrink();
-              }
-              return Text(
-                '\u00ae By $nombre - Todos los Derechos Reservados \u00a9',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.52),
-                  fontSize: 11,
-                ),
-              );
-            },
+          const Text(
+            '\u00a9 By BIOS \u2014 Todos los derechos reservados',
+            style: TextStyle(
+              color: Colors.white54,
+              fontSize: 11,
+            ),
           ),
         ],
       ),

@@ -70,12 +70,14 @@ class UsuarioBios {
   static const List<String> tiposComercio = [
     'restaurante',
     'comercio',
+    'kiosko',
     'otro',
   ];
 
   static const Map<String, String> tipoLabel = {
     'restaurante': 'Restaurante',
     'comercio': 'Comercio',
+    'kiosko': 'Kiosko',
     'otro': 'Otro',
   };
 

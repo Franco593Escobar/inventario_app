@@ -11,6 +11,7 @@ class InventarioApp extends StatelessWidget {
   Widget _buildAuthenticatedHome(AuthProvider auth) {
     switch (auth.rol.toLowerCase()) {
       case 'superadmin':
+      case 'admin':
         return SuperadminDashboardScreen(
           nombreUsuario: auth.nombreUsuario,
           tenantNombre: auth.tenantNombre,

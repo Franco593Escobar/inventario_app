@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:inventario_app/core/constants/app_colors.dart';
+import 'package:inventario_app/presentation/screens/marca_bios/marca_bios_screen.dart';
 import 'package:inventario_app/presentation/screens/usuario_bios/usuario_bios_screen.dart';
 import 'package:inventario_app/presentation/screens/dashboard/module_overview_screen.dart';
 import 'package:inventario_app/presentation/screens/products/products_management_screen.dart';
@@ -37,7 +38,9 @@ class SuperadminDashboardScreen extends StatelessWidget {
     if (tenantNombre.trim().isNotEmpty) {
       return _capitalizarNombre(tenantNombre.trim());
     }
-    return 'Grupo Ramones';
+    // Superadmin es el dueño de BIOS Soluciones Informáticas
+    if (rol.toLowerCase() == 'superadmin') return 'BIOS';
+    return 'Mi Negocio';
   }
 
   String get _sucursalLabel {
@@ -56,51 +59,87 @@ class SuperadminDashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final modules = [
-      const _DashboardModule(
-        title: 'Usuarios',
-        subtitle: 'Gestiona accesos y permisos',
-        icon: Icons.people_alt_outlined,
-        isReady: true,
-      ),
-      const _DashboardModule(
-        title: 'Productos',
-        subtitle: 'Consulta y organiza el catalogo',
-        icon: Icons.inventory_2_outlined,
-        isReady: true,
-      ),
-      const _DashboardModule(
-        title: 'Inventario',
-        subtitle: 'Revisa stock y movimientos',
-        icon: Icons.warehouse_outlined,
-        isReady: true,
-      ),
-      const _DashboardModule(
-        title: 'Ventas',
-        subtitle: 'Visualiza operaciones recientes',
-        icon: Icons.point_of_sale_outlined,
-        isReady: true,
-      ),
-      const _DashboardModule(
-        title: 'Negocios BIOS',
-        subtitle: 'Configura el negocio activo del dashboard',
-        icon: Icons.domain_outlined,
-        isReady: true,
-      ),
-      const _DashboardModule(
-        title: 'Reportes',
-        subtitle: 'Accede a indicadores clave',
-        icon: Icons.bar_chart_outlined,
-      ),
-      const _DashboardModule(
-        title: 'Configuracion',
-        subtitle: 'Ajusta parametros del sistema',
-        icon: Icons.settings_outlined,
-      ),
-    ];
+    // ── Módulos según rol ─────────────────────────────────────
+    // superadmin (dueño de BIOS): solo gestiona negocios clientes
+    // admin (negocio contratante): accede a su propio espacio de trabajo
+    final modules = rol.toLowerCase() == 'superadmin'
+        ? [
+            const _DashboardModule(
+              title: 'Negocios BIOS',
+              subtitle:
+                  'Crea y administra los negocios que contratan el servicio',
+              icon: Icons.domain_outlined,
+              isReady: true,
+            ),
+            const _DashboardModule(
+              title: 'Marca',
+              subtitle: 'Cromatica, colores y logo por negocio',
+              icon: Icons.palette_outlined,
+              isReady: true,
+            ),
+          ]
+        : [
+            const _DashboardModule(
+              title: 'Usuarios',
+              subtitle: 'Gestiona accesos y permisos',
+              icon: Icons.people_alt_outlined,
+              isReady: true,
+            ),
+            const _DashboardModule(
+              title: 'Productos',
+              subtitle: 'Consulta y organiza el catalogo',
+              icon: Icons.inventory_2_outlined,
+              isReady: true,
+            ),
+            const _DashboardModule(
+              title: 'Inventario',
+              subtitle: 'Revisa stock y movimientos',
+              icon: Icons.warehouse_outlined,
+              isReady: true,
+            ),
+            const _DashboardModule(
+              title: 'Ventas',
+              subtitle: 'Visualiza operaciones recientes',
+              icon: Icons.point_of_sale_outlined,
+              isReady: true,
+            ),
+            const _DashboardModule(
+              title: 'Reportes',
+              subtitle: 'Accede a indicadores clave',
+              icon: Icons.bar_chart_outlined,
+            ),
+            const _DashboardModule(
+              title: 'Configuracion',
+              subtitle: 'Ajusta parametros del sistema',
+              icon: Icons.settings_outlined,
+            ),
+          ];
 
     return Scaffold(
       backgroundColor: const Color(0xFFF2F5FA),
+      // ── Pie de página fijo ──────────────────────────────────
+      bottomNavigationBar: Container(
+        height: 38,
+        color: AppColors.primary,
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              '© BIOS Soluciones Informáticas — Todos los derechos reservados',
+              style: TextStyle(color: Colors.white38, fontSize: 11),
+            ),
+            Text(
+              _tenantLabel,
+              style: const TextStyle(
+                color: Colors.white60,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         foregroundColor: AppColors.primary,
@@ -300,7 +339,7 @@ class SuperadminDashboardScreen extends StatelessWidget {
                         crossAxisCount: crossAxisCount,
                         crossAxisSpacing: 16,
                         mainAxisSpacing: 16,
-                        mainAxisExtent: 190,
+                        mainAxisExtent: 220,
                       ),
                       itemCount: modules.length,
                       itemBuilder: (context, index) {
@@ -377,6 +416,15 @@ class _DashboardCard extends StatelessWidget {
             Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => const UsuarioBiosScreen(),
+              ),
+            );
+            return;
+          }
+
+          if (module.title == 'Marca') {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const MarcaBiosScreen(),
               ),
             );
             return;
