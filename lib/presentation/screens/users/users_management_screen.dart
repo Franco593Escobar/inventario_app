@@ -104,6 +104,8 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
     // Auditoría: usuario actualmente logueado
     final auditor =
         Provider.of<AuthProvider>(context, listen: false).nombreUsuario;
+    final authTenantId =
+        Provider.of<AuthProvider>(context, listen: false).tenantId;
 
     final saved = await showDialog<bool>(
       context: context,
@@ -452,6 +454,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                       password: passwordController.text.trim(),
                       rol: rol,
                       estadoActivo: estadoActivo,
+                      tenantId: user?.tenantId ?? authTenantId,
                       fechaCreacion: fechaCreacion,
                       email: emailController.text.trim().isEmpty
                           ? null
@@ -573,7 +576,13 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<AppUser>>(
-      stream: _repository.watchUsers(),
+      stream: () {
+        final auth = Provider.of<AuthProvider>(context, listen: false);
+        final isSuper = auth.rol.toLowerCase() == 'superadmin';
+        return isSuper
+            ? _repository.watchUsers()
+            : _repository.watchByTenant(auth.tenantId);
+      }(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(

@@ -1,9 +1,14 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:inventario_app/core/constants/app_colors.dart';
+import 'package:inventario_app/presentation/providers/auth_provider.dart';
 import 'package:inventario_app/presentation/screens/marca_bios/marca_bios_screen.dart';
 import 'package:inventario_app/presentation/screens/usuario_bios/usuario_bios_screen.dart';
 import 'package:inventario_app/presentation/screens/dashboard/module_overview_screen.dart';
 import 'package:inventario_app/presentation/screens/products/products_management_screen.dart';
+import 'package:inventario_app/presentation/screens/proveedores/proveedores_screen.dart';
+import 'package:inventario_app/presentation/screens/secciones/secciones_screen.dart';
 import 'package:inventario_app/presentation/screens/users/users_management_screen.dart';
 
 class SuperadminDashboardScreen extends StatelessWidget {
@@ -87,8 +92,20 @@ class SuperadminDashboardScreen extends StatelessWidget {
             ),
             const _DashboardModule(
               title: 'Productos',
-              subtitle: 'Consulta y organiza el catalogo',
+              subtitle: 'Consulta y organiza el catálogo',
               icon: Icons.inventory_2_outlined,
+              isReady: true,
+            ),
+            const _DashboardModule(
+              title: 'Secciones',
+              subtitle: 'Crea y organiza las secciones de tu menú',
+              icon: Icons.category_outlined,
+              isReady: true,
+            ),
+            const _DashboardModule(
+              title: 'Proveedores',
+              subtitle: 'Administra los proveedores del negocio',
+              icon: Icons.local_shipping_outlined,
               isReady: true,
             ),
             const _DashboardModule(
@@ -110,274 +127,301 @@ class SuperadminDashboardScreen extends StatelessWidget {
             ),
             const _DashboardModule(
               title: 'Configuracion',
-              subtitle: 'Ajusta parametros del sistema',
+              subtitle: 'Ajusta parámetros del sistema',
               icon: Icons.settings_outlined,
             ),
           ];
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF2F5FA),
-      // ── Pie de página fijo ──────────────────────────────────
-      bottomNavigationBar: Container(
-        height: 38,
-        color: AppColors.primary,
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              '© BIOS Soluciones Informáticas — Todos los derechos reservados',
-              style: TextStyle(color: Colors.white38, fontSize: 11),
-            ),
-            Text(
-              _tenantLabel,
-              style: const TextStyle(
-                color: Colors.white60,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        foregroundColor: AppColors.primary,
-        elevation: 0,
-        title: const Text('Centro de Mando'),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: Center(
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: const Color(0xFFDDE3EF)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(_tenantIcon, size: 15, color: AppColors.primary),
-                    const SizedBox(width: 6),
-                    Text(
-                      _tenantLabel,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        rol.toLowerCase(),
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          IconButton(
-            onPressed: onLogout,
-            icon: const Icon(Icons.logout),
-            tooltip: 'Cerrar Sesion',
-          ),
-        ],
-      ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final crossAxisCount = constraints.maxWidth >= 1100
-              ? 3
-              : constraints.maxWidth >= 700
-                  ? 2
-                  : 1;
+    return Consumer<AuthProvider>(
+      builder: (context, auth, _) {
+        final isSuperadmin = rol.toLowerCase() == 'superadmin';
+        final brandColor =
+            isSuperadmin ? AppColors.primary : auth.marcaPrimaryColor;
+        final logoB64 = isSuperadmin ? null : auth.marcaLogoBase64;
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1400),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(28),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF12213D), Color(0xFF284A83)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(28),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x22000000),
-                            blurRadius: 22,
-                            offset: Offset(0, 10),
+        return Scaffold(
+          backgroundColor: const Color(0xFFF2F5FA),
+          // ── Pie de página fijo ──────────────────────────────────
+          bottomNavigationBar: Container(
+            height: 38,
+            color: brandColor,
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  '© BIOS Soluciones Informáticas — Todos los derechos reservados',
+                  style: TextStyle(color: Colors.white38, fontSize: 11),
+                ),
+                Text(
+                  _tenantLabel,
+                  style: const TextStyle(
+                    color: Colors.white60,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          appBar: AppBar(
+            backgroundColor: brandColor,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            title: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (logoB64 != null) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: Image.memory(
+                      base64Decode(logoB64),
+                      width: 32,
+                      height: 32,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                ],
+                Text(isSuperadmin ? 'Centro de Mando' : _tenantLabel),
+              ],
+            ),
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: Center(
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: Colors.white30),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(_tenantIcon, size: 15, color: Colors.white),
+                        const SizedBox(width: 6),
+                        Text(
+                          _tenantLabel,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                            fontSize: 13,
                           ),
-                        ],
-                      ),
-                      child: Wrap(
-                        spacing: 24,
-                        runSpacing: 24,
-                        alignment: WrapAlignment.spaceBetween,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          SizedBox(
-                            width: 720,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Dashboard Superadmin Multinegocio',
-                                  style: TextStyle(
-                                    fontSize: 34,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                Text(
-                                  'Bienvenido, ${_capitalizarNombre(nombreUsuario)}. Administra Negocios, Sucursales, Operación y Rentabilidad desde una Vista más Vendible para Web.',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    color: Colors.white.withOpacity(0.86),
-                                    height: 1.5,
-                                  ),
-                                ),
-                                const SizedBox(height: 18),
-                                Wrap(
-                                  spacing: 10,
-                                  runSpacing: 10,
-                                  children: const [
-                                    _HeroChip(label: 'Multinegocio listo'),
-                                    _HeroChip(label: 'Web + Android'),
-                                    _HeroChip(label: 'POS + Reportes'),
-                                  ],
-                                ),
-                              ],
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.20),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            rol.toLowerCase(),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                          Wrap(
-                            spacing: 12,
-                            runSpacing: 12,
-                            children: [
-                              _ExecutiveMiniCard(
-                                title: 'Rol activo',
-                                value: rol,
-                              ),
-                              _ExecutiveMiniCard(
-                                title: 'Sucursal',
-                                value: _sucursalLabel,
-                              ),
-                              const _ExecutiveMiniCard(
-                                title: 'Canal',
-                                value: 'Web + Android',
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: onLogout,
+                icon: const Icon(Icons.logout),
+                tooltip: 'Cerrar Sesion',
+              ),
+            ],
+          ),
+          body: LayoutBuilder(
+            builder: (context, constraints) {
+              final crossAxisCount = constraints.maxWidth >= 1100
+                  ? 3
+                  : constraints.maxWidth >= 700
+                      ? 2
+                      : 1;
+
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1400),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(28),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF12213D), Color(0xFF284A83)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(28),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x22000000),
+                                blurRadius: 22,
+                                offset: Offset(0, 10),
                               ),
                             ],
                           ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Wrap(
-                      spacing: 16,
-                      runSpacing: 16,
-                      children: const [
-                        _ExecutiveMetricCard(
-                          title: 'Ventas del día',
-                          value: '\$3.240',
-                          detail: 'Meta diaria al 78%',
+                          child: Wrap(
+                            spacing: 24,
+                            runSpacing: 24,
+                            alignment: WrapAlignment.spaceBetween,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              SizedBox(
+                                width: 720,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Dashboard Superadmin Multinegocio',
+                                      style: TextStyle(
+                                        fontSize: 34,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      'Bienvenido, ${_capitalizarNombre(nombreUsuario)}. Administra Negocios, Sucursales, Operación y Rentabilidad desde una Vista más Vendible para Web.',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        color: Colors.white.withOpacity(0.86),
+                                        height: 1.5,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 18),
+                                    Wrap(
+                                      spacing: 10,
+                                      runSpacing: 10,
+                                      children: const [
+                                        _HeroChip(label: 'Multinegocio listo'),
+                                        _HeroChip(label: 'Web + Android'),
+                                        _HeroChip(label: 'POS + Reportes'),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Wrap(
+                                spacing: 12,
+                                runSpacing: 12,
+                                children: [
+                                  _ExecutiveMiniCard(
+                                    title: 'Rol activo',
+                                    value: rol,
+                                  ),
+                                  _ExecutiveMiniCard(
+                                    title: 'Sucursal',
+                                    value: _sucursalLabel,
+                                  ),
+                                  const _ExecutiveMiniCard(
+                                    title: 'Canal',
+                                    value: 'Web + Android',
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
-                        _ExecutiveMetricCard(
-                          title: 'Utilidad estimada',
-                          value: '\$980',
-                          detail: 'Margen controlado por negocio',
+                        const SizedBox(height: 24),
+                        Wrap(
+                          spacing: 16,
+                          runSpacing: 16,
+                          children: const [
+                            _ExecutiveMetricCard(
+                              title: 'Ventas del día',
+                              value: '\$3.240',
+                              detail: 'Meta diaria al 78%',
+                            ),
+                            _ExecutiveMetricCard(
+                              title: 'Utilidad estimada',
+                              value: '\$980',
+                              detail: 'Margen controlado por negocio',
+                            ),
+                            _ExecutiveMetricCard(
+                              title: 'Negocios activos',
+                              value: '4',
+                              detail: '1 tenant con varias sucursales',
+                            ),
+                            _ExecutiveMetricCard(
+                              title: 'Alertas críticas',
+                              value: '6',
+                              detail: 'Stock, caja y metas',
+                            ),
+                          ],
                         ),
-                        _ExecutiveMetricCard(
-                          title: 'Negocios activos',
-                          value: '4',
-                          detail: '1 tenant con varias sucursales',
+                        const SizedBox(height: 24),
+                        const Text(
+                          'Módulos de Operación',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primary,
+                          ),
                         ),
-                        _ExecutiveMetricCard(
-                          title: 'Alertas críticas',
-                          value: '6',
-                          detail: 'Stock, caja y metas',
+                        const SizedBox(height: 16),
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: crossAxisCount,
+                            crossAxisSpacing: 16,
+                            mainAxisSpacing: 16,
+                            mainAxisExtent: 220,
+                          ),
+                          itemCount: modules.length,
+                          itemBuilder: (context, index) {
+                            final module = modules[index];
+                            return _DashboardCard(module: module);
+                          },
+                        ),
+                        const SizedBox(height: 24),
+                        Wrap(
+                          spacing: 16,
+                          runSpacing: 16,
+                          children: const [
+                            _InsightPanel(
+                              title: 'Valor Comercial',
+                              items: [
+                                'Operación centralizada para varios negocios',
+                                'Base para kiosko, cocina y delivery',
+                                'Dashboard ejecutivo apto para demo comercial',
+                              ],
+                            ),
+                            _InsightPanel(
+                              title: 'Prioridades Sugeridas',
+                              items: [
+                                'Tenants y sucursales reales',
+                                'Arqueo y caja por turno',
+                                'Restaurante: mesas, KDS y pagos mixtos',
+                              ],
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Módulos de Operación',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: crossAxisCount,
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
-                        mainAxisExtent: 220,
-                      ),
-                      itemCount: modules.length,
-                      itemBuilder: (context, index) {
-                        final module = modules[index];
-                        return _DashboardCard(module: module);
-                      },
-                    ),
-                    const SizedBox(height: 24),
-                    Wrap(
-                      spacing: 16,
-                      runSpacing: 16,
-                      children: const [
-                        _InsightPanel(
-                          title: 'Valor Comercial',
-                          items: [
-                            'Operación centralizada para varios negocios',
-                            'Base para kiosko, cocina y delivery',
-                            'Dashboard ejecutivo apto para demo comercial',
-                          ],
-                        ),
-                        _InsightPanel(
-                          title: 'Prioridades Sugeridas',
-                          items: [
-                            'Tenants y sucursales reales',
-                            'Arqueo y caja por turno',
-                            'Restaurante: mesas, KDS y pagos mixtos',
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
+              );
+            },
+          ),
+        );
+      }, // Consumer builder
+    ); // Consumer
   }
 }
 
@@ -425,6 +469,24 @@ class _DashboardCard extends StatelessWidget {
             Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => const MarcaBiosScreen(),
+              ),
+            );
+            return;
+          }
+
+          if (module.title == 'Proveedores') {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const ProveedoresScreen(),
+              ),
+            );
+            return;
+          }
+
+          if (module.title == 'Secciones') {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const SeccionesScreen(),
               ),
             );
             return;

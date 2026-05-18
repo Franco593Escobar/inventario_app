@@ -9,6 +9,7 @@ class AppUser {
     required this.password,
     required this.rol,
     required this.estadoActivo,
+    this.tenantId,
     this.fechaCreacion,
     this.email,
     this.telefono,
@@ -29,6 +30,10 @@ class AppUser {
   final String password;
   final String rol;
   final bool estadoActivo;
+
+  /// ID del documento en usuario_bios al que pertenece este usuario
+  final String? tenantId;
+
   final DateTime? fechaCreacion;
   final String? email;
   final String? telefono;
@@ -50,6 +55,7 @@ class AppUser {
       password: (map['password'] ?? '').toString(),
       rol: (map['rol'] ?? 'vendedor').toString(),
       estadoActivo: map['estado_activo'] == true,
+      tenantId: map['tenant_id']?.toString(),
       fechaCreacion: _parseFecha(map['fecha_creacion']),
       email: map['email']?.toString(),
       telefono: map['telefono']?.toString(),
@@ -82,6 +88,7 @@ class AppUser {
       'password': password.trim(),
       'rol': rol.trim(),
       'estado_activo': estadoActivo,
+      'tenant_id': tenantId,
       'fecha_creacion': fechaCreacion?.toIso8601String(),
       'email': email?.trim(),
       'telefono': telefono?.trim(),
@@ -102,6 +109,7 @@ class AppUser {
     String? password,
     String? rol,
     bool? estadoActivo,
+    String? tenantId,
     DateTime? fechaCreacion,
     String? email,
     String? telefono,
@@ -120,6 +128,7 @@ class AppUser {
       password: password ?? this.password,
       rol: rol ?? this.rol,
       estadoActivo: estadoActivo ?? this.estadoActivo,
+      tenantId: tenantId ?? this.tenantId,
       fechaCreacion: fechaCreacion ?? this.fechaCreacion,
       email: email ?? this.email,
       telefono: telefono ?? this.telefono,

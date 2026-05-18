@@ -27,6 +27,13 @@ class UsuarioBiosRepository {
     return UsuarioBios.fromMap(snap.docs.first.id, snap.docs.first.data());
   }
 
+  // ── Obtener por ID ───────────────────────────────────────
+  Future<UsuarioBios?> getById(String id) async {
+    final doc = await _col.doc(id).get();
+    if (!doc.exists) return null;
+    return UsuarioBios.fromMap(doc.id, doc.data()!);
+  }
+
   // ── Crear / Actualizar — devuelve el id del documento ────
   Future<String> save(UsuarioBios usuario) async {
     final data = usuario

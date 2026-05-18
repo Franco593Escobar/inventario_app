@@ -14,14 +14,23 @@ class UserRepository {
   CollectionReference<Map<String, dynamic>> get _usuariosCollection =>
       _firestore.collection('usuarios');
 
+  /// Retorna todos los usuarios (solo superadmin debe usar esto).
   Stream<List<AppUser>> watchUsers() {
     return _usuariosCollection.orderBy('nombre_usuario').snapshots().map(
-      (snapshot) {
-        return snapshot.docs
-            .map((doc) => AppUser.fromMap(doc.id, doc.data()))
-            .toList();
-      },
-    );
+          (snapshot) => snapshot.docs
+              .map((d) => AppUser.fromMap(d.id, d.data()))
+              .toList(),
+        );
+  }
+
+  /// Retorna solo los usuarios que pertenecen al tenant indicado.
+  Stream<List<AppUser>> watchByTenant(String tenantId) {
+    return _usuariosCollection
+        .where('tenant_id', isEqualTo: tenantId)
+        .orderBy('nombre_usuario')
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map((d) => AppUser.fromMap(d.id, d.data())).toList());
   }
 
   Future<void> createUser(AppUser user) async {

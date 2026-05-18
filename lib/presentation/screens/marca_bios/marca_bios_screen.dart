@@ -626,8 +626,7 @@ class _ColorFieldRow extends StatelessWidget {
                 icon: const Icon(Icons.close, size: 16, color: Colors.red),
                 onPressed: onDelete,
                 padding: EdgeInsets.zero,
-                constraints:
-                    const BoxConstraints(minWidth: 28, minHeight: 28),
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
               ),
           ],
         ),
