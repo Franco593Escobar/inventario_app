@@ -40,12 +40,13 @@ class SuperadminDashboardScreen extends StatelessWidget {
   }
 
   String get _tenantLabel {
-    // Superadmin siempre muestra el nombre del sistema
+    // Superadmin siempre muestra solo el nombre del sistema
     if (rol.toLowerCase() == 'superadmin') return 'Liris';
-    if (tenantNombre.trim().isNotEmpty) {
-      return _capitalizarNombre(tenantNombre.trim());
-    }
-    return 'Mi Negocio';
+    // Clientes de Liris ven 'Liris - NombreNegocio'
+    final negocio = tenantNombre.trim().isNotEmpty
+        ? _capitalizarNombre(tenantNombre.trim())
+        : 'Mi Negocio';
+    return 'Liris - $negocio';
   }
 
   String get _sucursalLabel {
@@ -55,12 +56,18 @@ class SuperadminDashboardScreen extends StatelessWidget {
     return 'Centro';
   }
 
-  /// Icono del AppBar según tipo de comercio
-  IconData get _tenantIcon => switch (tipoComercio) {
-        'restaurante' => Icons.restaurant_outlined,
-        'comercio' => Icons.store_outlined,
-        _ => Icons.business_outlined,
-      };
+  /// Icono del AppBar según rol y tipo de comercio
+  IconData get _tenantIcon {
+    if (rol.toLowerCase() == 'superadmin') return Icons.dashboard_outlined;
+    return switch (tipoComercio) {
+      'restaurante' => Icons.restaurant_outlined,
+      'comercio' => Icons.store_outlined,
+      'kiosko' => Icons.storefront_outlined,
+      'farmacia' => Icons.local_pharmacy_outlined,
+      'supermercado' => Icons.shopping_cart_outlined,
+      _ => Icons.cases_outlined,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -138,6 +145,17 @@ class SuperadminDashboardScreen extends StatelessWidget {
         final brandColor =
             isSuperadmin ? AppColors.primary : auth.marcaPrimaryColor;
         final logoB64 = isSuperadmin ? null : auth.marcaLogoBase64;
+        // Ícono dinámico actualizado desde auth en cada rebuild
+        final tenantIcon = isSuperadmin
+            ? Icons.dashboard_outlined
+            : switch (auth.tipoComercio) {
+                'restaurante' => Icons.restaurant_outlined,
+                'comercio' => Icons.store_outlined,
+                'kiosko' => Icons.storefront_outlined,
+                'farmacia' => Icons.local_pharmacy_outlined,
+                'supermercado' => Icons.shopping_cart_outlined,
+                _ => Icons.cases_outlined,
+              };
 
         return Scaffold(
           backgroundColor: const Color(0xFFF2F5FA),
@@ -201,7 +219,7 @@ class SuperadminDashboardScreen extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(_tenantIcon, size: 15, color: Colors.white),
+                        Icon(tenantIcon, size: 15, color: Colors.white),
                         const SizedBox(width: 6),
                         Text(
                           _tenantLabel,
