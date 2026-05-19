@@ -19,10 +19,21 @@ class MarcaBiosRepository {
         );
   }
 
-  // ── Obtener por negocio ──────────────────────────────────
+  // ── Obtener por negocio (por ID) ────────────────────────
   Future<MarcaBios?> getByNegocioId(String negocioId) async {
     final snap =
         await _col.where('negocioId', isEqualTo: negocioId).limit(1).get();
+    if (snap.docs.isEmpty) return null;
+    return MarcaBios.fromMap(snap.docs.first.id, snap.docs.first.data());
+  }
+
+  // ── Fallback: buscar por nombre del negocio ───────────────
+  Future<MarcaBios?> getByNombreNegocio(String nombre) async {
+    if (nombre.trim().isEmpty) return null;
+    final snap = await _col
+        .where('nombreNegocio', isEqualTo: nombre.trim())
+        .limit(1)
+        .get();
     if (snap.docs.isEmpty) return null;
     return MarcaBios.fromMap(snap.docs.first.id, snap.docs.first.data());
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:inventario_app/data/models/marca_bios.dart';
 import 'package:inventario_app/data/repositories/usuario_bios_repository.dart';
 import 'package:inventario_app/data/repositories/marca_bios_repository.dart';
 
@@ -139,20 +140,33 @@ class AuthProvider extends ChangeNotifier {
           if (negocio != null) {
             _tenantNombre = negocio.nombreNegocio;
             _tipoComercio = negocio.tipoComercio;
-            if (_sucursalNombre.isEmpty)
+            if (_sucursalNombre.isEmpty) {
               _sucursalNombre = negocio.nombreNegocio;
+            }
           }
-        } catch (_) {}
+          debugPrint('[Liris] tenant_id=$_tenantId | negocio=${negocio?.nombreNegocio ?? "NO ENCONTRADO"}');
+        } catch (e) {
+          debugPrint('[Liris] ERROR cargando usuario_bios: $e');
+        }
 
-        // ── Cargar marca del tenant ──
+        // ── Cargar marca del tenant (por ID y fallback por nombre) ──
         try {
-          final marca = await MarcaBiosRepository().getByNegocioId(_tenantId);
+          MarcaBios? marca = await MarcaBiosRepository().getByNegocioId(_tenantId);
+          if (marca == null && _tenantNombre.isNotEmpty) {
+            debugPrint('[Liris] marca no encontrada por ID, buscando por nombre: $_tenantNombre');
+            marca = await MarcaBiosRepository().getByNombreNegocio(_tenantNombre);
+          }
           if (marca != null) {
             _marcaColorPrimario = marca.colorPrimario;
             _marcaLogoBase64 = marca.logoBase64;
             _marcaCromatica = marca.cromatica;
+            debugPrint('[Liris] marca cargada: color=${marca.colorPrimario} | logo=${marca.logoBase64 != null}');
+          } else {
+            debugPrint('[Liris] marca NO encontrada para tenantId=$_tenantId / nombre=$_tenantNombre');
           }
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('[Liris] ERROR cargando marca_bios: $e');
+        }
       } else if (_rol.toLowerCase() == 'superadmin') {
         // Superadmin sin tenantId: usar datos del cliente activo si hay
         try {
