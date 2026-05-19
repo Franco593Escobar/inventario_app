@@ -27,11 +27,33 @@ class UsuarioBiosRepository {
     return UsuarioBios.fromMap(snap.docs.first.id, snap.docs.first.data());
   }
 
-  // ── Obtener por ID ───────────────────────────────────────
+  // ── Obtener por ID (document ID = cédula) ───────────────
   Future<UsuarioBios?> getById(String id) async {
     final doc = await _col.doc(id).get();
     if (!doc.exists) return null;
     return UsuarioBios.fromMap(doc.id, doc.data()!);
+  }
+
+  // ── Fallback: buscar por cédula como campo ───────────────
+  Future<UsuarioBios?> getByCedula(String cedula) async {
+    if (cedula.trim().isEmpty) return null;
+    final snap = await _col
+        .where('cedula', isEqualTo: cedula.trim())
+        .limit(1)
+        .get();
+    if (snap.docs.isEmpty) return null;
+    return UsuarioBios.fromMap(snap.docs.first.id, snap.docs.first.data());
+  }
+
+  // ── Fallback: buscar por nombre del negocio ───────────────
+  Future<UsuarioBios?> getByNombreNegocio(String nombre) async {
+    if (nombre.trim().isEmpty) return null;
+    final snap = await _col
+        .where('nombre_negocio', isEqualTo: nombre.trim())
+        .limit(1)
+        .get();
+    if (snap.docs.isEmpty) return null;
+    return UsuarioBios.fromMap(snap.docs.first.id, snap.docs.first.data());
   }
 
   // ── Crear / Actualizar — devuelve el id del documento ────

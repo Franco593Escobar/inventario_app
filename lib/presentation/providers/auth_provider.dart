@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:inventario_app/data/models/marca_bios.dart';
+import 'package:inventario_app/data/models/usuario_bios.dart';
 import 'package:inventario_app/data/repositories/usuario_bios_repository.dart';
 import 'package:inventario_app/data/repositories/marca_bios_repository.dart';
 
@@ -108,16 +109,23 @@ class AuthProvider extends ChangeNotifier {
         return false;
       }
 
+      // ── Diagnóstico: mostrar todos los campos del doc ──
+      debugPrint('[Liris] LOGIN usuario="${usuario}" | campos: ${userData.keys.join(', ')}');
+      debugPrint('[Liris] tenant_id=${userData['tenant_id']} | tenantId=${userData['tenantId']} | negocio_id=${userData['negocio_id']}');
+
       _uid = userDoc.id;
       _nombreUsuario = _readFirstNonEmpty(
           userData, const ['nombres', 'nombre_usuario', 'apellidos']);
       _rol = userData['rol'] ?? 'vendedor';
+
       // Buscar tenant_id con varias posibles claves (snake_case y camelCase)
       _tenantId = _readFirstNonEmpty(userData, const [
         'tenant_id',
         'tenantId',
         'negocio_id',
         'negocioId',
+        'cedula_negocio',
+        'ruc_negocio',
       ]);
 
       _tenantNombre = _readFirstNonEmpty(userData, const [
@@ -133,23 +141,44 @@ class AuthProvider extends ChangeNotifier {
         'bodega_nombre',
       ]);
 
-      // ── Cargar datos del tenant desde usuario_bios ──
+      // ── Cargar datos del negocio desde usuario_bios ──
       if (_tenantId.isNotEmpty) {
         try {
-          final negocio = await UsuarioBiosRepository().getById(_tenantId);
+          // Intento 1: buscar por document ID (= cédula del negocio)
+          UsuarioBios? negocio = await UsuarioBiosRepository().getById(_tenantId);
+
+          // Intento 2: buscar por campo 'cedula'
+          negocio ??= await UsuarioBiosRepository().getByCedula(_tenantId);
+
           if (negocio != null) {
+            _tenantId = negocio.id; // asegurar que usamos el doc ID real
             _tenantNombre = negocio.nombreNegocio;
             _tipoComercio = negocio.tipoComercio;
-            if (_sucursalNombre.isEmpty) {
-              _sucursalNombre = negocio.nombreNegocio;
-            }
+            if (_sucursalNombre.isEmpty) _sucursalNombre = negocio.nombreNegocio;
           }
-          debugPrint('[Liris] tenant_id=$_tenantId | negocio=${negocio?.nombreNegocio ?? "NO ENCONTRADO"}');
+          debugPrint('[Liris] usuario_bios → tenantId=$_tenantId | negocio=${negocio?.nombreNegocio ?? "NO ENCONTRADO"}');
         } catch (e) {
           debugPrint('[Liris] ERROR cargando usuario_bios: $e');
         }
+      } else {
+        debugPrint('[Liris] ADVERTENCIA: tenant_id vacío para usuario=$usuario. Verifica el doc en colección "usuarios".');
+      }
 
-        // ── Cargar marca del tenant (por ID y fallback por nombre) ──
+      // ── Fallback: si aún sin tenantNombre, buscar en usuario_bios por nombre ──
+      if (_tenantNombre.isNotEmpty && _tenantId.isEmpty) {
+        try {
+          final negocio = await UsuarioBiosRepository().getByNombreNegocio(_tenantNombre);
+          if (negocio != null) {
+            _tenantId = negocio.id;
+            _tenantNombre = negocio.nombreNegocio;
+            _tipoComercio = negocio.tipoComercio;
+            debugPrint('[Liris] fallback nombre → tenantId=$_tenantId');
+          }
+        } catch (_) {}
+      }
+
+      // ── Cargar marca del tenant (por ID y fallback por nombre) ──
+      if (_tenantId.isNotEmpty) {
         try {
           MarcaBios? marca = await MarcaBiosRepository().getByNegocioId(_tenantId);
           if (marca == null && _tenantNombre.isNotEmpty) {
@@ -160,18 +189,20 @@ class AuthProvider extends ChangeNotifier {
             _marcaColorPrimario = marca.colorPrimario;
             _marcaLogoBase64 = marca.logoBase64;
             _marcaCromatica = marca.cromatica;
-            debugPrint('[Liris] marca cargada: color=${marca.colorPrimario} | logo=${marca.logoBase64 != null}');
+            debugPrint('[Liris] ✅ marca cargada: color=${marca.colorPrimario}');
           } else {
-            debugPrint('[Liris] marca NO encontrada para tenantId=$_tenantId / nombre=$_tenantNombre');
+            debugPrint('[Liris] ❌ marca NO encontrada para tenantId=$_tenantId / nombre=$_tenantNombre');
           }
         } catch (e) {
           debugPrint('[Liris] ERROR cargando marca_bios: $e');
         }
-      } else if (_rol.toLowerCase() == 'superadmin') {
-        // Superadmin sin tenantId: usar datos del cliente activo si hay
+      }
+
+      // ── Superadmin: cargar nombre del cliente activo si no tiene tenant ──
+      if (_rol.toLowerCase() == 'superadmin' && _tenantNombre.isEmpty) {
         try {
           final clienteActivo = await UsuarioBiosRepository().getActivo();
-          if (clienteActivo != null && _tenantNombre.isEmpty) {
+          if (clienteActivo != null) {
             _tenantNombre = clienteActivo.nombreNegocio;
             _tipoComercio = clienteActivo.tipoComercio;
           }
