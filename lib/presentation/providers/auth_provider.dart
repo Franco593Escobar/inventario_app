@@ -111,12 +111,20 @@ class AuthProvider extends ChangeNotifier {
       _nombreUsuario = _readFirstNonEmpty(
           userData, const ['nombres', 'nombre_usuario', 'apellidos']);
       _rol = userData['rol'] ?? 'vendedor';
-      _tenantId = userData['tenant_id']?.toString() ?? '';
+      // Buscar tenant_id con varias posibles claves (snake_case y camelCase)
+      _tenantId = _readFirstNonEmpty(userData, const [
+        'tenant_id',
+        'tenantId',
+        'negocio_id',
+        'negocioId',
+      ]);
 
       _tenantNombre = _readFirstNonEmpty(userData, const [
         'empresa_nombre',
         'negocio_nombre',
         'tenant_nombre',
+        'negocio',
+        'nombreNegocio',
       ]);
       _sucursalNombre = _readFirstNonEmpty(userData, const [
         'sucursal_nombre',
@@ -131,14 +139,14 @@ class AuthProvider extends ChangeNotifier {
           if (negocio != null) {
             _tenantNombre = negocio.nombreNegocio;
             _tipoComercio = negocio.tipoComercio;
-            if (_sucursalNombre.isEmpty) _sucursalNombre = negocio.nombreNegocio;
+            if (_sucursalNombre.isEmpty)
+              _sucursalNombre = negocio.nombreNegocio;
           }
         } catch (_) {}
 
         // ── Cargar marca del tenant ──
         try {
-          final marca =
-              await MarcaBiosRepository().getByNegocioId(_tenantId);
+          final marca = await MarcaBiosRepository().getByNegocioId(_tenantId);
           if (marca != null) {
             _marcaColorPrimario = marca.colorPrimario;
             _marcaLogoBase64 = marca.logoBase64;

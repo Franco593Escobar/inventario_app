@@ -201,7 +201,27 @@ class SuperadminDashboardScreen extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                 ],
-                Text(isSuperadmin ? 'Liris' : _tenantLabel),
+                if (isSuperadmin)
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Centro de Operación Multinegocio',
+                        style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.white70,
+                            fontWeight: FontWeight.w400),
+                      ),
+                      Text(
+                        'Liris',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  )
+                else
+                  Text(_tenantLabel),
               ],
             ),
             actions: [
