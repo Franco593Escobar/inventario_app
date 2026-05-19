@@ -45,6 +45,17 @@ class UsuarioBiosRepository {
     return UsuarioBios.fromMap(snap.docs.first.id, snap.docs.first.data());
   }
 
+  // ── Fallback: buscar por nombre de usuario (login) ───────
+  Future<UsuarioBios?> getByNombreUsuario(String nombreUsuario) async {
+    if (nombreUsuario.trim().isEmpty) return null;
+    final snap = await _col
+        .where('nombre_usuario', isEqualTo: nombreUsuario.trim())
+        .limit(1)
+        .get();
+    if (snap.docs.isEmpty) return null;
+    return UsuarioBios.fromMap(snap.docs.first.id, snap.docs.first.data());
+  }
+
   // ── Fallback: buscar por nombre del negocio ───────────────
   Future<UsuarioBios?> getByNombreNegocio(String nombre) async {
     if (nombre.trim().isEmpty) return null;

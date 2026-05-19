@@ -177,6 +177,22 @@ class AuthProvider extends ChangeNotifier {
         } catch (_) {}
       }
 
+      // ── Fallback final: buscar usuario_bios por nombre_usuario del login ──
+      if (_tenantId.isEmpty) {
+        try {
+          final negocio = await UsuarioBiosRepository().getByNombreUsuario(usuario.trim());
+          if (negocio != null) {
+            _tenantId = negocio.id;
+            _tenantNombre = negocio.nombreNegocio;
+            _tipoComercio = negocio.tipoComercio;
+            if (_sucursalNombre.isEmpty) _sucursalNombre = negocio.nombreNegocio;
+            debugPrint('[Liris] ✅ fallback por nombre_usuario → tenantId=$_tenantId | negocio=$_tenantNombre');
+          } else {
+            debugPrint('[Liris] ❌ Sin vínculo al negocio. Agrega tenant_id="${negocio?.id ?? "ID_NEGOCIO"}" al doc de usuario=$usuario en Firestore → colección "usuarios"');
+          }
+        } catch (_) {}
+      }
+
       // ── Cargar marca del tenant (por ID y fallback por nombre) ──
       if (_tenantId.isNotEmpty) {
         try {
