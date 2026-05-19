@@ -11,6 +11,7 @@ enum AuthStatus { uninitialized, authenticated, unauthenticated }
 class AuthProvider extends ChangeNotifier {
   AuthStatus _status = AuthStatus.uninitialized;
   String _nombreUsuario = '';
+  String _loginUsername = '';
   String _rol = '';
   String _uid = '';
   String _tenantId = '';
@@ -30,6 +31,8 @@ class AuthProvider extends ChangeNotifier {
 
   AuthStatus get status => _status;
   String get nombreUsuario => _nombreUsuario;
+  /// Nombre de usuario de login (ej. "593bk-gramon") — usado para auditoría y lookup de tenant.
+  String get loginUsername => _loginUsername;
   String get rol => _rol;
   String get uid => _uid;
   String get tenantId => _tenantId;
@@ -114,6 +117,7 @@ class AuthProvider extends ChangeNotifier {
       debugPrint('[Liris] tenant_id=${userData['tenant_id']} | tenantId=${userData['tenantId']} | negocio_id=${userData['negocio_id']}');
 
       _uid = userDoc.id;
+      _loginUsername = (userData['nombre_usuario'] ?? usuario).toString().trim();
       _nombreUsuario = _readFirstNonEmpty(
           userData, const ['nombres', 'nombre_usuario', 'apellidos']);
       _rol = userData['rol'] ?? 'vendedor';
@@ -175,6 +179,25 @@ class AuthProvider extends ChangeNotifier {
             debugPrint('[Liris] fallback nombre → tenantId=$_tenantId');
           }
         } catch (_) {}
+      }
+
+      // ── Fallback por creado_por: hereda negocio del admin que creó el usuario ──
+      if (_tenantId.isEmpty) {
+        final creadoPor = userData['creado_por']?.toString().trim() ?? '';
+        if (creadoPor.isNotEmpty) {
+          try {
+            final negocio = await UsuarioBiosRepository().getByNombreUsuario(creadoPor);
+            if (negocio != null) {
+              _tenantId = negocio.id;
+              _tenantNombre = negocio.nombreNegocio;
+              _tipoComercio = negocio.tipoComercio;
+              if (_sucursalNombre.isEmpty) _sucursalNombre = negocio.nombreNegocio;
+              debugPrint('[Liris] ✅ fallback creado_por="$creadoPor" → tenantId=$_tenantId | negocio=$_tenantNombre');
+            } else {
+              debugPrint('[Liris] creado_por="$creadoPor" no encontrado en usuario_bios');
+            }
+          } catch (_) {}
+        }
       }
 
       // ── Fallback final: buscar usuario_bios por nombre_usuario del login ──
@@ -239,6 +262,7 @@ class AuthProvider extends ChangeNotifier {
   void logout() {
     _status = AuthStatus.unauthenticated;
     _nombreUsuario = '';
+    _loginUsername = '';
     _rol = '';
     _uid = '';
     _tenantId = '';

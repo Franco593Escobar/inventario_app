@@ -101,9 +101,6 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
     // Advertencias de duplicado (no bloquean el guardado)
     String? warnCedula;
     String? warnId;
-    // Auditoría: usuario actualmente logueado
-    final auditor =
-        Provider.of<AuthProvider>(context, listen: false).nombreUsuario;
     final authTenantId =
         Provider.of<AuthProvider>(context, listen: false).tenantId;
 
@@ -240,6 +237,18 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                                 value: 'vendedor',
                                 child: Text('vendedor'),
                               ),
+                              DropdownMenuItem(
+                                value: 'Cajero',
+                                child: Text('Cajero'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Bodeguero',
+                                child: Text('Bodeguero'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Mesero',
+                                child: Text('Mesero'),
+                              ),
                             ],
                             onChanged: (value) {
                               if (value == null) return;
@@ -363,6 +372,28 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                             ),
                           ),
                         ),
+                        // CREADO POR: usuario que registra (login), solo lectura
+                        SizedBox(
+                          width: isWide ? 320 : double.infinity,
+                          child: InputDecorator(
+                            decoration: InputDecoration(
+                              labelText: 'CREADO POR',
+                              border: const OutlineInputBorder(),
+                              helperText: 'Se registra automáticamente',
+                              suffixIcon: Icon(
+                                Icons.lock_outline,
+                                size: 16,
+                                color: Colors.blueGrey.shade300,
+                              ),
+                            ),
+                            child: Text(
+                              user?.creadoPor ??  Provider.of<AuthProvider>(context, listen: false).loginUsername,
+                              style: TextStyle(
+                                color: Colors.blueGrey.shade600,
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -468,9 +499,11 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                       direccion: direccionController.text.trim().isEmpty
                           ? null
                           : direccionController.text.trim(),
-                      // Auditoría: preservar creadoPor en edición
-                      creadoPor: user?.creadoPor ?? auditor,
-                      modificadoPor: auditor,
+                      // Auditoría: preservar creadoPor en edición;
+                      // para usuarios nuevos se usa el nombre_usuario de login.
+                      creadoPor: user?.creadoPor ??
+                          Provider.of<AuthProvider>(context, listen: false).loginUsername,
+                      modificadoPor: Provider.of<AuthProvider>(context, listen: false).loginUsername,
                     );
 
                     try {
@@ -673,6 +706,18 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                         DropdownMenuItem(
                           value: 'vendedor',
                           child: Text('vendedor'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'cajero',
+                          child: Text('Cajero'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'bodeguero',
+                          child: Text('Bodeguero'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'mesero',
+                          child: Text('Mesero'),
                         ),
                       ],
                       onChanged: (value) {

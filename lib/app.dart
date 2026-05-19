@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:inventario_app/core/constants/app_colors.dart';
 import 'package:inventario_app/presentation/providers/auth_provider.dart';
 import 'package:inventario_app/presentation/screens/dashboard/superadmin_dashboard_screen.dart';
+import 'package:inventario_app/presentation/screens/dashboard/staff_dashboard_screen.dart';
 import 'package:inventario_app/presentation/screens/login/login_screen.dart';
 
 class InventarioApp extends StatelessWidget {
@@ -16,6 +17,16 @@ class InventarioApp extends StatelessWidget {
           nombreUsuario: auth.nombreUsuario,
           tenantNombre: auth.tenantNombre,
           sucursalNombre: auth.sucursalNombre,
+          tipoComercio: auth.tipoComercio,
+          rol: auth.rol,
+          onLogout: auth.logout,
+        );
+      case 'cajero':
+      case 'bodeguero':
+      case 'mesero':
+        return StaffDashboardScreen(
+          nombreUsuario: auth.nombreUsuario,
+          tenantNombre: auth.tenantNombre,
           tipoComercio: auth.tipoComercio,
           rol: auth.rol,
           onLogout: auth.logout,
