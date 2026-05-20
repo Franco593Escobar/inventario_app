@@ -24,6 +24,7 @@ class InventarioApp extends StatelessWidget {
       case 'cajero':
       case 'bodeguero':
       case 'mesero':
+      case 'vendedor':
         return StaffDashboardScreen(
           nombreUsuario: auth.nombreUsuario,
           tenantNombre: auth.tenantNombre,
