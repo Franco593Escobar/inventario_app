@@ -106,7 +106,12 @@ class _ProductsManagementScreenState extends State<ProductsManagementScreen> {
         text: product?.posicionPantalla.toString() ?? '0');
     final descCtrl = TextEditingController(text: product?.descripcion ?? '');
 
-    String impuesto = product?.impuesto ?? 'IVA 15%';
+    final kImpuestosStd = ['IVA 0%', 'IVA 12%', 'IVA 15%', 'Exento', 'No objeto'];
+    final rawImpuesto = product?.impuesto ?? 'IVA 15%';
+    String impuesto =
+        kImpuestosStd.contains(rawImpuesto) ? rawImpuesto : 'Personalizado...';
+    final impuestoCustomCtrl = TextEditingController(
+        text: kImpuestosStd.contains(rawImpuesto) ? '' : rawImpuesto);
     String vendidoEn = product?.vendidoEn ?? 'unidades';
     bool mostrarEnVentas = product?.mostrarEnVentas ?? true;
     bool mostrarEnPedidos = product?.mostrarEnPedidos ?? false;
@@ -185,49 +190,163 @@ class _ProductsManagementScreenState extends State<ProductsManagementScreen> {
                     ),
                   ),
                   // Proveedor
-                  _formRow(
-                    label: 'PROVEEDOR',
-                    child: DropdownButtonFormField<String>(
-                      value: proveedorId,
-                      decoration:
-                          const InputDecoration(border: OutlineInputBorder()),
-                      items: [
-                        const DropdownMenuItem(
-                            value: null, child: Text('— Sin proveedor —')),
-                        ...proveedores.map((p) => DropdownMenuItem(
-                              value: p.id,
-                              child: Text(p.nombre),
-                            )),
-                      ],
-                      onChanged: (v) {
-                        setDS(() {
-                          proveedorId = v;
-                          proveedorNombre = v == null
-                              ? null
-                              : proveedores.firstWhere((p) => p.id == v).nombre;
-                        });
-                      },
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text('PROVEEDOR',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey)),
+                          const Spacer(),
+                          TextButton.icon(
+                            style: TextButton.styleFrom(
+                                visualDensity: VisualDensity.compact),
+                            icon: const Icon(Icons.add, size: 16),
+                            label: const Text('Nuevo'),
+                            onPressed: () async {
+                              final nCtrl = TextEditingController();
+                              final String? nombreAg =
+                                  await showDialog<String>(
+                                context: ctx,
+                                builder: (dc) => AlertDialog(
+                                  title: const Text('Nuevo Proveedor'),
+                                  content: TextField(
+                                    controller: nCtrl,
+                                    autofocus: true,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Nombre del proveedor',
+                                      border: OutlineInputBorder(),
+                                    ),
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(dc).pop(),
+                                        child: const Text('Cancelar')),
+                                    ElevatedButton(
+                                      onPressed: () async {
+                                        final nombre = nCtrl.text.trim();
+                                        if (nombre.isEmpty) return;
+                                        await _proveedorRepository.create(
+                                          Proveedor(
+                                            id: '',
+                                            tenantId: tenantId,
+                                            identificador:
+                                                'P${(proveedores.length + 1).toString().padLeft(3, '0')}',
+                                            nombre: nombre,
+                                            activo: true,
+                                            creadoPor: auditor,
+                                            fechaCreacion: DateTime.now(),
+                                          ),
+                                        );
+                                        if (dc.mounted)
+                                          Navigator.of(dc).pop(nombre);
+                                      },
+                                      child: const Text('Agregar'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              nCtrl.dispose();
+                              if (nombreAg != null) {
+                                final lista = await _proveedorRepository
+                                    .watchByTenant(tenantId)
+                                    .first;
+                                final matches =
+                                    lista.where((p) => p.nombre == nombreAg);
+                                final nuevo =
+                                    matches.isEmpty ? null : matches.last;
+                                setDS(() {
+                                  proveedores = lista;
+                                  if (nuevo != null) {
+                                    proveedorId = nuevo.id;
+                                    proveedorNombre = nuevo.nombre;
+                                  }
+                                });
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      DropdownButtonFormField<String>(
+                        value: proveedorId,
+                        decoration: const InputDecoration(
+                            border: OutlineInputBorder()),
+                        items: [
+                          const DropdownMenuItem(
+                              value: null,
+                              child: Text('— Sin proveedor —')),
+                          ...proveedores.map((p) => DropdownMenuItem(
+                                value: p.id,
+                                child: Text(p.nombre),
+                              )),
+                        ],
+                        onChanged: (v) {
+                          setDS(() {
+                            proveedorId = v;
+                            proveedorNombre = v == null
+                                ? null
+                                : proveedores
+                                    .firstWhere((p) => p.id == v)
+                                    .nombre;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                   ),
                   // Impuesto
-                  _formRow(
-                    label: 'IMPUESTO',
-                    child: DropdownButtonFormField<String>(
-                      value: impuesto,
-                      decoration:
-                          const InputDecoration(border: OutlineInputBorder()),
-                      items: const [
-                        DropdownMenuItem(
-                            value: 'IVA 0%', child: Text('IVA 0%')),
-                        DropdownMenuItem(
-                            value: 'IVA 15%', child: Text('IVA 15%')),
-                        DropdownMenuItem(
-                            value: 'Exento', child: Text('Exento')),
-                        DropdownMenuItem(
-                            value: 'No objeto', child: Text('No objeto')),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('IMPUESTO',
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey)),
+                      const SizedBox(height: 4),
+                      DropdownButtonFormField<String>(
+                        value: impuesto,
+                        decoration: const InputDecoration(
+                            border: OutlineInputBorder()),
+                        items: const [
+                          DropdownMenuItem(
+                              value: 'IVA 0%', child: Text('IVA 0%')),
+                          DropdownMenuItem(
+                              value: 'IVA 12%', child: Text('IVA 12%')),
+                          DropdownMenuItem(
+                              value: 'IVA 15%', child: Text('IVA 15%')),
+                          DropdownMenuItem(
+                              value: 'Exento', child: Text('Exento')),
+                          DropdownMenuItem(
+                              value: 'No objeto', child: Text('No objeto')),
+                          DropdownMenuItem(
+                              value: 'Personalizado...',
+                              child: Text('Personalizado...')),
+                        ],
+                        onChanged: (v) =>
+                            setDS(() => impuesto = v ?? 'IVA 15%'),
+                      ),
+                      if (impuesto == 'Personalizado...') ...[
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: impuestoCustomCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            labelText: 'Porcentaje personalizado',
+                            hintText: 'ej. 8',
+                            suffixText: '%',
+                          ),
+                        ),
                       ],
-                      onChanged: (v) => setDS(() => impuesto = v ?? 'IVA 15%'),
-                    ),
+                      const SizedBox(height: 12),
+                    ],
                   ),
                   // Costo, Stock, StockMin en fila
                   Wrap(
@@ -265,6 +384,14 @@ class _ProductsManagementScreenState extends State<ProductsManagementScreen> {
                             double factor = 1.0;
                             if (impuesto == 'IVA 15%') factor = 1.15;
                             if (impuesto == 'IVA 12%') factor = 1.12;
+                            if (impuesto == 'Personalizado...') {
+                              final pct = double.tryParse(
+                                      impuestoCustomCtrl.text
+                                          .trim()
+                                          .replaceAll('%', '')) ??
+                                  0;
+                              factor = 1.0 + (pct / 100);
+                            }
                             setDS(() => precioCtrl.text =
                                 (costo * factor).toStringAsFixed(2));
                           },
@@ -301,11 +428,81 @@ class _ProductsManagementScreenState extends State<ProductsManagementScreen> {
                   ),
                   const SizedBox(height: 12),
                   // Sección selector
-                  const Text('SECCIÓN',
-                      style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey)),
+                  Row(
+                    children: [
+                      const Text('SECCIÓN',
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey)),
+                      const Spacer(),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                            visualDensity: VisualDensity.compact),
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text('Nueva'),
+                        onPressed: () async {
+                          final nCtrl = TextEditingController();
+                          final String? nombreAg = await showDialog<String>(
+                            context: ctx,
+                            builder: (dc) => AlertDialog(
+                              title: const Text('Nueva Sección'),
+                              content: TextField(
+                                controller: nCtrl,
+                                autofocus: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'Nombre de la sección',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                              actions: [
+                                TextButton(
+                                    onPressed: () => Navigator.of(dc).pop(),
+                                    child: const Text('Cancelar')),
+                                ElevatedButton(
+                                  onPressed: () async {
+                                    final nombre = nCtrl.text.trim();
+                                    if (nombre.isEmpty) return;
+                                    await _seccionRepository.create(
+                                      Seccion(
+                                        id: '',
+                                        tenantId: tenantId,
+                                        nombre: nombre,
+                                        posicion: secciones.length,
+                                        activa: true,
+                                        creadoPor: auditor,
+                                        fechaCreacion: DateTime.now(),
+                                      ),
+                                    );
+                                    if (dc.mounted)
+                                      Navigator.of(dc).pop(nombre);
+                                  },
+                                  child: const Text('Agregar'),
+                                ),
+                              ],
+                            ),
+                          );
+                          nCtrl.dispose();
+                          if (nombreAg != null) {
+                            final lista = await _seccionRepository
+                                .watchByTenant(tenantId)
+                                .first;
+                            final matches =
+                                lista.where((s) => s.nombre == nombreAg);
+                            final nueva =
+                                matches.isEmpty ? null : matches.last;
+                            setDS(() {
+                              secciones = lista;
+                              if (nueva != null) {
+                                seccionId = nueva.id;
+                                seccionNombre = nueva.nombre;
+                              }
+                            });
+                          }
+                        },
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 6),
                   SizedBox(
                     height: 80,
@@ -619,7 +816,9 @@ class _ProductsManagementScreenState extends State<ProductsManagementScreen> {
                                   nombre: nombreCtrl.text.trim(),
                                   proveedorId: proveedorId,
                                   proveedorNombre: proveedorNombre,
-                                  impuesto: impuesto,
+                                  impuesto: impuesto == 'Personalizado...'
+                                      ? impuestoCustomCtrl.text.trim()
+                                      : impuesto,
                                   costo:
                                       double.tryParse(costoCtrl.text.trim()) ??
                                           0,
@@ -755,6 +954,7 @@ class _ProductsManagementScreenState extends State<ProductsManagementScreen> {
       posCtrl.dispose();
       descCtrl.dispose();
       codigoAdCtrl.dispose();
+      impuestoCustomCtrl.dispose();
     });
 
     if (saved == true && mounted) {
