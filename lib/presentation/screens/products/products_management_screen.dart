@@ -13,6 +13,8 @@ import 'package:inventario_app/data/repositories/product_repository.dart';
 import 'package:inventario_app/data/repositories/proveedor_repository.dart';
 import 'package:inventario_app/data/repositories/seccion_repository.dart';
 import 'package:inventario_app/presentation/providers/auth_provider.dart';
+import 'package:inventario_app/presentation/screens/proveedores/proveedores_screen.dart';
+import 'package:inventario_app/presentation/screens/secciones/secciones_screen.dart';
 import 'package:inventario_app/presentation/widgets/admin_module_ui.dart';
 
 class ProductsManagementScreen extends StatefulWidget {
@@ -204,69 +206,20 @@ class _ProductsManagementScreenState extends State<ProductsManagementScreen> {
                           TextButton.icon(
                             style: TextButton.styleFrom(
                                 visualDensity: VisualDensity.compact),
-                            icon: const Icon(Icons.add, size: 16),
-                            label: const Text('Nuevo'),
+                            icon: const Icon(Icons.open_in_new, size: 16),
+                            label: const Text('Gestionar'),
                             onPressed: () async {
-                              final nCtrl = TextEditingController();
-                              final String? nombreAg =
-                                  await showDialog<String>(
+                              await showDialog(
                                 context: ctx,
-                                builder: (dc) => AlertDialog(
-                                  title: const Text('Nuevo Proveedor'),
-                                  content: TextField(
-                                    controller: nCtrl,
-                                    autofocus: true,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Nombre del proveedor',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                        onPressed: () =>
-                                            Navigator.of(dc).pop(),
-                                        child: const Text('Cancelar')),
-                                    ElevatedButton(
-                                      onPressed: () async {
-                                        final nombre = nCtrl.text.trim();
-                                        if (nombre.isEmpty) return;
-                                        await _proveedorRepository.create(
-                                          Proveedor(
-                                            id: '',
-                                            tenantId: tenantId,
-                                            identificador:
-                                                'P${(proveedores.length + 1).toString().padLeft(3, '0')}',
-                                            nombre: nombre,
-                                            activo: true,
-                                            creadoPor: auditor,
-                                            fechaCreacion: DateTime.now(),
-                                          ),
-                                        );
-                                        if (dc.mounted)
-                                          Navigator.of(dc).pop(nombre);
-                                      },
-                                      child: const Text('Agregar'),
-                                    ),
-                                  ],
+                                barrierDismissible: false,
+                                builder: (_) => const Dialog.fullscreen(
+                                  child: ProveedoresScreen(),
                                 ),
                               );
-                              nCtrl.dispose();
-                              if (nombreAg != null) {
-                                final lista = await _proveedorRepository
-                                    .watchByTenant(tenantId)
-                                    .first;
-                                final matches =
-                                    lista.where((p) => p.nombre == nombreAg);
-                                final nuevo =
-                                    matches.isEmpty ? null : matches.last;
-                                setDS(() {
-                                  proveedores = lista;
-                                  if (nuevo != null) {
-                                    proveedorId = nuevo.id;
-                                    proveedorNombre = nuevo.nombre;
-                                  }
-                                });
-                              }
+                              final lista = await _proveedorRepository
+                                  .watchByTenant(tenantId)
+                                  .first;
+                              setDS(() => proveedores = lista);
                             },
                           ),
                         ],
@@ -439,66 +392,20 @@ class _ProductsManagementScreenState extends State<ProductsManagementScreen> {
                       TextButton.icon(
                         style: TextButton.styleFrom(
                             visualDensity: VisualDensity.compact),
-                        icon: const Icon(Icons.add, size: 16),
-                        label: const Text('Nueva'),
+                        icon: const Icon(Icons.open_in_new, size: 16),
+                        label: const Text('Gestionar'),
                         onPressed: () async {
-                          final nCtrl = TextEditingController();
-                          final String? nombreAg = await showDialog<String>(
+                          await showDialog(
                             context: ctx,
-                            builder: (dc) => AlertDialog(
-                              title: const Text('Nueva Sección'),
-                              content: TextField(
-                                controller: nCtrl,
-                                autofocus: true,
-                                decoration: const InputDecoration(
-                                  labelText: 'Nombre de la sección',
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
-                              actions: [
-                                TextButton(
-                                    onPressed: () => Navigator.of(dc).pop(),
-                                    child: const Text('Cancelar')),
-                                ElevatedButton(
-                                  onPressed: () async {
-                                    final nombre = nCtrl.text.trim();
-                                    if (nombre.isEmpty) return;
-                                    await _seccionRepository.create(
-                                      Seccion(
-                                        id: '',
-                                        tenantId: tenantId,
-                                        nombre: nombre,
-                                        posicion: secciones.length,
-                                        activa: true,
-                                        creadoPor: auditor,
-                                        fechaCreacion: DateTime.now(),
-                                      ),
-                                    );
-                                    if (dc.mounted)
-                                      Navigator.of(dc).pop(nombre);
-                                  },
-                                  child: const Text('Agregar'),
-                                ),
-                              ],
+                            barrierDismissible: false,
+                            builder: (_) => const Dialog.fullscreen(
+                              child: SeccionesScreen(),
                             ),
                           );
-                          nCtrl.dispose();
-                          if (nombreAg != null) {
-                            final lista = await _seccionRepository
-                                .watchByTenant(tenantId)
-                                .first;
-                            final matches =
-                                lista.where((s) => s.nombre == nombreAg);
-                            final nueva =
-                                matches.isEmpty ? null : matches.last;
-                            setDS(() {
-                              secciones = lista;
-                              if (nueva != null) {
-                                seccionId = nueva.id;
-                                seccionNombre = nueva.nombre;
-                              }
-                            });
-                          }
+                          final lista = await _seccionRepository
+                              .watchByTenant(tenantId)
+                              .first;
+                          setDS(() => secciones = lista);
                         },
                       ),
                     ],
