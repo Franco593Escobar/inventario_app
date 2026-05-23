@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:inventario_app/core/constants/app_colors.dart';
 import 'package:inventario_app/presentation/providers/auth_provider.dart';
+import 'package:inventario_app/presentation/screens/inventario/inventario_screen.dart';
 import 'package:inventario_app/presentation/screens/products/products_management_screen.dart';
+import 'package:inventario_app/presentation/screens/ventas/ventas_screen.dart';
 
 /// Dashboard para roles de operación: Cajero, Bodeguero, Mesero.
 /// Hereda los colores de marca del negocio al que pertenece el usuario
@@ -58,7 +60,7 @@ class StaffDashboardScreen extends StatelessWidget {
             title: 'Ventas / Caja',
             subtitle: 'Registra ventas y cobros del turno',
             icon: Icons.point_of_sale_outlined,
-            isReady: false,
+            isReady: true,
           ),
           _StaffModule(
             title: 'Productos',
@@ -73,7 +75,7 @@ class StaffDashboardScreen extends StatelessWidget {
             title: 'Inventario',
             subtitle: 'Controla stock y movimientos de bodega',
             icon: Icons.warehouse_outlined,
-            isReady: false,
+            isReady: true,
           ),
           _StaffModule(
             title: 'Productos',
@@ -344,10 +346,18 @@ class StaffDashboardScreen extends StatelessWidget {
       case 'Productos':
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => const Scaffold(
-              body: ProductsManagementScreen(),
-            ),
+            builder: (_) => const ProductsManagementScreen(),
           ),
+        );
+        break;
+      case 'Ventas / Caja':
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const VentasScreen()),
+        );
+        break;
+      case 'Inventario':
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const InventarioScreen()),
         );
         break;
       default:

@@ -6,10 +6,13 @@ import 'package:inventario_app/presentation/providers/auth_provider.dart';
 import 'package:inventario_app/presentation/screens/marca_bios/marca_bios_screen.dart';
 import 'package:inventario_app/presentation/screens/usuario_bios/usuario_bios_screen.dart';
 import 'package:inventario_app/presentation/screens/dashboard/module_overview_screen.dart';
+import 'package:inventario_app/presentation/screens/inventario/inventario_screen.dart';
 import 'package:inventario_app/presentation/screens/products/products_management_screen.dart';
 import 'package:inventario_app/presentation/screens/proveedores/proveedores_screen.dart';
+import 'package:inventario_app/presentation/screens/reportes/reportes_screen.dart';
 import 'package:inventario_app/presentation/screens/secciones/secciones_screen.dart';
 import 'package:inventario_app/presentation/screens/users/users_management_screen.dart';
+import 'package:inventario_app/presentation/screens/ventas/ventas_screen.dart';
 
 class SuperadminDashboardScreen extends StatelessWidget {
   const SuperadminDashboardScreen({
@@ -526,6 +529,27 @@ class _DashboardCard extends StatelessWidget {
               MaterialPageRoute(
                 builder: (_) => const SeccionesScreen(),
               ),
+            );
+            return;
+          }
+
+          if (module.title == 'Ventas') {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const VentasScreen()),
+            );
+            return;
+          }
+
+          if (module.title == 'Inventario') {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const InventarioScreen()),
+            );
+            return;
+          }
+
+          if (module.title == 'Reportes') {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ReportesScreen()),
             );
             return;
           }

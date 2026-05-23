@@ -209,11 +209,10 @@ class _ProductsManagementScreenState extends State<ProductsManagementScreen> {
                             icon: const Icon(Icons.open_in_new, size: 16),
                             label: const Text('Gestionar'),
                             onPressed: () async {
-                              await showDialog(
-                                context: ctx,
-                                barrierDismissible: false,
-                                builder: (_) => const Dialog.fullscreen(
-                                  child: ProveedoresScreen(),
+                              await Navigator.of(ctx, rootNavigator: true).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const ProveedoresScreen(),
+                                  fullscreenDialog: true,
                                 ),
                               );
                               final lista = await _proveedorRepository
@@ -395,11 +394,10 @@ class _ProductsManagementScreenState extends State<ProductsManagementScreen> {
                         icon: const Icon(Icons.open_in_new, size: 16),
                         label: const Text('Gestionar'),
                         onPressed: () async {
-                          await showDialog(
-                            context: ctx,
-                            barrierDismissible: false,
-                            builder: (_) => const Dialog.fullscreen(
-                              child: SeccionesScreen(),
+                          await Navigator.of(ctx, rootNavigator: true).push(
+                            MaterialPageRoute(
+                              builder: (_) => const SeccionesScreen(),
+                              fullscreenDialog: true,
                             ),
                           );
                           final lista = await _seccionRepository
