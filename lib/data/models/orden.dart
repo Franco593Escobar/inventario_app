@@ -10,6 +10,9 @@ class Orden {
     required this.vendedor,
     required this.fechaCreacion,
     this.numeroMesa,
+    this.salonId,
+    this.salonNombre,
+    this.clienteId,
     this.clienteNombre,
     this.clienteTelefono,
     this.clienteDireccion,
@@ -29,6 +32,9 @@ class Orden {
   final String vendedor;
   final DateTime fechaCreacion;
   final int? numeroMesa;
+  final String? salonId;
+  final String? salonNombre;
+  final String? clienteId;
   final String? clienteNombre;
   final String? clienteTelefono;
   final String? clienteDireccion;
@@ -59,6 +65,9 @@ class Orden {
       vendedor: (map['vendedor'] ?? '').toString(),
       fechaCreacion: _parseFecha(map['fecha_creacion']) ?? DateTime.now(),
       numeroMesa: (map['numero_mesa'] as num?)?.toInt(),
+      salonId: map['salon_id']?.toString(),
+      salonNombre: map['salon_nombre']?.toString(),
+      clienteId: map['cliente_id']?.toString(),
       clienteNombre: map['cliente_nombre']?.toString(),
       clienteTelefono: map['cliente_telefono']?.toString(),
       clienteDireccion: map['cliente_direccion']?.toString(),
@@ -75,6 +84,9 @@ class Orden {
         'vendedor': vendedor,
         'fecha_creacion': fechaCreacion.toIso8601String(),
         'numero_mesa': numeroMesa,
+        'salon_id': salonId,
+        'salon_nombre': salonNombre,
+        'cliente_id': clienteId,
         'cliente_nombre': clienteNombre,
         'cliente_telefono': clienteTelefono,
         'cliente_direccion': clienteDireccion,
@@ -87,6 +99,11 @@ class Orden {
     List<OrdenItem>? items,
     String? estado,
     double? costoDelivery,
+    String? observaciones,
+    String? clienteId,
+    String? clienteNombre,
+    String? clienteTelefono,
+    String? clienteDireccion,
   }) =>
       Orden(
         id: id ?? this.id,
@@ -97,11 +114,14 @@ class Orden {
         vendedor: vendedor,
         fechaCreacion: fechaCreacion,
         numeroMesa: numeroMesa,
-        clienteNombre: clienteNombre,
-        clienteTelefono: clienteTelefono,
-        clienteDireccion: clienteDireccion,
+        salonId: salonId,
+        salonNombre: salonNombre,
+        clienteId: clienteId ?? this.clienteId,
+        clienteNombre: clienteNombre ?? this.clienteNombre,
+        clienteTelefono: clienteTelefono ?? this.clienteTelefono,
+        clienteDireccion: clienteDireccion ?? this.clienteDireccion,
         costoDelivery: costoDelivery ?? this.costoDelivery,
-        observaciones: observaciones,
+        observaciones: observaciones ?? this.observaciones,
       );
 
   static DateTime? _parseFecha(dynamic v) {

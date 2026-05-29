@@ -102,4 +102,9 @@ class OrdenRepository {
   Future<void> cancelar(String ordenId) async {
     await _col.doc(ordenId).update({'estado': 'cancelada'});
   }
+
+  /// Actualiza las observaciones de una orden.
+  Future<void> updateObservaciones(String ordenId, String obs) async {
+    await _col.doc(ordenId).update({'observaciones': obs});
+  }
 }

@@ -1,13 +1,20 @@
 import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:inventario_app/core/constants/app_colors.dart';
 import 'package:inventario_app/data/models/orden.dart';
 import 'package:inventario_app/data/models/product.dart';
+import 'package:inventario_app/data/models/salon.dart';
 import 'package:inventario_app/data/repositories/orden_repository.dart';
 import 'package:inventario_app/data/repositories/product_repository.dart';
+import 'package:inventario_app/data/repositories/salon_repository.dart';
 import 'package:inventario_app/presentation/providers/auth_provider.dart';
+import 'package:inventario_app/presentation/screens/ventas/cobrar_screen.dart';
+
+enum _FacturacionView { entrada, nuevaVenta, ventasPendientes, pos }
 
 final _fmt = NumberFormat('\$#,##0.00', 'en_US');
 final _fmtHora = DateFormat('HH:mm');
@@ -24,7 +31,11 @@ class FacturacionTab extends StatefulWidget {
 class _FacturacionTabState extends State<FacturacionTab> {
   final _ordenRepo = OrdenRepository();
   final _productRepo = ProductRepository();
+  final _salonRepo = SalonRepository();
   final _busquedaCtrl = TextEditingController();
+
+  // ── Vista actual ──────────────────────────────────────────────────────────
+  _FacturacionView _view = _FacturacionView.entrada;
 
   Orden? _ordenSeleccionada;
   String _filtroTipo = 'todos';
@@ -53,8 +64,21 @@ class _FacturacionTabState extends State<FacturacionTab> {
     setState(() {
       _ordenSeleccionada = orden;
       _carritoLocal = List.from(orden.items);
+      _view = _FacturacionView.pos;
     });
   }
+
+  // ── Navegación entre vistas ────────────────────────────────────────────────
+  void _irAEntrada() => setState(() {
+        _view = _FacturacionView.entrada;
+        _ordenSeleccionada = null;
+        _carritoLocal = [];
+      });
+
+  void _irANuevaVenta() => setState(() => _view = _FacturacionView.nuevaVenta);
+
+  void _irAVentasPendientes() =>
+      setState(() => _view = _FacturacionView.ventasPendientes);
 
   void _agregarProducto(Product p) {
     setState(() {
@@ -100,59 +124,663 @@ class _FacturacionTabState extends State<FacturacionTab> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthProvider>();
-    final tenantId = auth.tenantId;
-    final vendedor = auth.loginUsername;
+    return switch (_view) {
+      _FacturacionView.entrada => _buildEntrada(),
+      _FacturacionView.nuevaVenta => _buildNuevaVenta(),
+      _FacturacionView.ventasPendientes => _buildVentasPendientes(),
+      _FacturacionView.pos => _buildPOSView(),
+    };
+  }
 
-    return StreamBuilder<List<Orden>>(
-      stream: _ordenRepo.watchAbiertas(tenantId),
-      builder: (context, snap) {
-        final todasOrdenes = snap.data ?? [];
+  // ─── Vista: Entrada (2 botones) ───────────────────────────────────────────
 
-        // Sincronizar orden seleccionada con el stream (sin sobrescribir carrito local)
-        if (_ordenSeleccionada != null) {
-          final actualizada = todasOrdenes
-              .where((o) => o.id == _ordenSeleccionada!.id)
-              .firstOrNull;
-          if (actualizada == null) {
-            // La orden ya fue pagada/cancelada
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                setState(() {
-                  _ordenSeleccionada = null;
-                  _carritoLocal = [];
-                });
-              }
-            });
-          }
-        }
+  Widget _buildEntrada() {
+    final auth = context.read<AuthProvider>();
+    final brandColor = auth.marcaPrimaryColor;
+    return Container(
+      color: const Color(0xFFF2F5FA),
+      child: Column(
+        children: [
+          Container(
+            color: const Color(0xFF171B21),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            child: Row(
+              children: [
+                const Icon(Icons.receipt_long_outlined,
+                    color: Colors.white54, size: 20),
+                const SizedBox(width: 10),
+                const Text('Punto de Venta',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16)),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.point_of_sale_outlined,
+                      size: 72, color: brandColor.withOpacity(0.3)),
+                  const SizedBox(height: 20),
+                  const Text('¿Qué deseas hacer?',
+                      style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1A2035))),
+                  const SizedBox(height: 40),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _EntradaButton(
+                        icon: Icons.add_circle_outline,
+                        label: 'Nueva\nVenta',
+                        color: brandColor,
+                        onTap: _irANuevaVenta,
+                      ),
+                      const SizedBox(width: 24),
+                      _EntradaButton(
+                        icon: Icons.pending_actions,
+                        label: 'Ventas\nPendientes',
+                        color: Colors.orange,
+                        onTap: _irAVentasPendientes,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-        final ordenesFiltradas = _filtroTipo == 'todos'
-            ? todasOrdenes
-            : todasOrdenes.where((o) => o.tipo == _filtroTipo).toList();
+  // ─── Vista: Nueva Venta ───────────────────────────────────────────────────
 
-        return LayoutBuilder(builder: (ctx, constraints) {
-          final wide = constraints.maxWidth >= 860;
-          return Column(
-            children: [
-              _buildToolbar(context, tenantId, vendedor, todasOrdenes),
-              Expanded(
-                child: wide
-                    ? _buildWideBody(ordenesFiltradas, tenantId, vendedor, auth)
-                    : _buildNarrowBody(
-                        context, ordenesFiltradas, tenantId, vendedor, auth),
+  Widget _buildNuevaVenta() {
+    final auth = context.read<AuthProvider>();
+    if (!_esRestaurante) {
+      return _buildNuevaVentaRapida(auth);
+    }
+    return _buildSalonesMesas(auth);
+  }
+
+  Widget _buildNuevaVentaRapida(AuthProvider auth) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF2F5FA),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF171B21),
+        foregroundColor: Colors.white,
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+            onPressed: _irAEntrada, icon: const Icon(Icons.arrow_back)),
+        title: const Text('Nueva Venta'),
+      ),
+      body: Center(
+        child: Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          alignment: WrapAlignment.center,
+          children: [
+            _TipoVentaCard(
+              icon: Icons.bolt,
+              label: 'Venta Rápida',
+              descripcion: 'Sin datos de cliente ni mesa',
+              color: AppColors.primary,
+              onTap: () => _crearYAbrirOrden('rapida'),
+            ),
+            _TipoVentaCard(
+              icon: Icons.shopping_bag_outlined,
+              label: 'Retiro',
+              descripcion: 'El cliente retira el pedido',
+              color: Colors.teal,
+              onTap: () => _crearYAbrirOrden('retiro'),
+            ),
+            _TipoVentaCard(
+              icon: Icons.delivery_dining,
+              label: 'Domicilio',
+              descripcion: 'Envío a domicilio',
+              color: Colors.deepOrange,
+              onTap: () => _crearYAbrirOrden('domicilio'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _crearYAbrirOrden(String tipo) async {
+    final auth = context.read<AuthProvider>();
+    final nueva = Orden(
+      id: '',
+      tenantId: auth.tenantId,
+      tipo: tipo,
+      items: const [],
+      estado: 'abierta',
+      vendedor: auth.loginUsername,
+      fechaCreacion: DateTime.now(),
+    );
+    final creada = await _ordenRepo.create(nueva);
+    _seleccionarOrden(creada);
+  }
+
+  Future<void> _crearYAbrirOrdenMesa(Salon salon, Mesa mesa) async {
+    final auth = context.read<AuthProvider>();
+    final nueva = Orden(
+      id: '',
+      tenantId: auth.tenantId,
+      tipo: 'mesa',
+      items: const [],
+      estado: 'abierta',
+      vendedor: auth.loginUsername,
+      fechaCreacion: DateTime.now(),
+      numeroMesa: mesa.numero,
+      salonId: salon.id,
+      salonNombre: salon.nombre,
+    );
+    final creada = await _ordenRepo.create(nueva);
+    _seleccionarOrden(creada);
+  }
+
+  Widget _buildSalonesMesas(AuthProvider auth) {
+    return StreamBuilder<List<Salon>>(
+      stream: _salonRepo.watchByTenant(auth.tenantId),
+      builder: (context, snapSalones) {
+        final salones = snapSalones.data ?? [];
+        return Scaffold(
+          backgroundColor: const Color(0xFFF2F5FA),
+          appBar: AppBar(
+            backgroundColor: const Color(0xFF171B21),
+            foregroundColor: Colors.white,
+            automaticallyImplyLeading: false,
+            leading: IconButton(
+                onPressed: _irAEntrada, icon: const Icon(Icons.arrow_back)),
+            title: const Text('Seleccionar Mesa'),
+            actions: [
+              TextButton.icon(
+                onPressed: () => _crearYAbrirOrden('rapida'),
+                icon: const Icon(Icons.bolt, color: Colors.white70),
+                label: const Text('Venta Rápida',
+                    style: TextStyle(color: Colors.white70)),
               ),
             ],
-          );
-        });
+          ),
+          body: salones.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.table_restaurant,
+                          size: 72, color: Colors.grey.shade300),
+                      const SizedBox(height: 12),
+                      const Text('No hay salones configurados',
+                          style:
+                              TextStyle(fontSize: 16, color: Colors.black45)),
+                      const SizedBox(height: 8),
+                      const Text('Ve a Configuración → Salones para crearlos',
+                          style: TextStyle(color: Colors.black38)),
+                      const SizedBox(height: 16),
+                      FilledButton.icon(
+                        onPressed: () => _crearYAbrirOrden('rapida'),
+                        icon: const Icon(Icons.bolt),
+                        label: const Text('Continuar como Venta Rápida'),
+                        style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.primary),
+                      ),
+                    ],
+                  ),
+                )
+              : StreamBuilder<List<Orden>>(
+                  stream: _ordenRepo.watchAbiertas(auth.tenantId),
+                  builder: (context, snapOrdenes) {
+                    final ordenesAbiertas = snapOrdenes.data ?? [];
+                    final mesasOcupadas = <String>{};
+                    for (final o in ordenesAbiertas) {
+                      if (o.salonId != null && o.numeroMesa != null) {
+                        mesasOcupadas.add('${o.salonId}_${o.numeroMesa}');
+                      }
+                    }
+                    return ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: salones.length,
+                      itemBuilder: (ctx, i) {
+                        final salon = salones[i];
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          elevation: 2,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(salon.nombre,
+                                    style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold)),
+                                if (salon.descripcion.isNotEmpty)
+                                  Text(salon.descripcion,
+                                      style: const TextStyle(
+                                          color: Colors.black45, fontSize: 12)),
+                                const SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 10,
+                                  runSpacing: 10,
+                                  children: salon.mesas
+                                      .where((m) => m.activa)
+                                      .map((mesa) {
+                                    final clave = '${salon.id}_${mesa.numero}';
+                                    final ocupada =
+                                        mesasOcupadas.contains(clave);
+                                    return _MesaChipPOS(
+                                      mesa: mesa,
+                                      ocupada: ocupada,
+                                      onTap: ocupada
+                                          ? null
+                                          : () => _crearYAbrirOrdenMesa(
+                                              salon, mesa),
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+        );
       },
     );
   }
 
-  // ─── Toolbar ─────────────────────────────────────────────────────────────
+  // ─── Vista: Ventas Pendientes ─────────────────────────────────────────────
 
-  Widget _buildToolbar(BuildContext context, String tenantId, String vendedor,
-      List<Orden> todasOrdenes) {
+  Widget _buildVentasPendientes() {
+    final auth = context.read<AuthProvider>();
+    return Scaffold(
+      backgroundColor: const Color(0xFFF2F5FA),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF171B21),
+        foregroundColor: Colors.white,
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+            onPressed: _irAEntrada, icon: const Icon(Icons.arrow_back)),
+        title: const Text('Ventas Pendientes'),
+        actions: [
+          TextButton.icon(
+            onPressed: _irANuevaVenta,
+            icon: const Icon(Icons.add, color: Colors.white70),
+            label: const Text('Nueva Venta',
+                style: TextStyle(color: Colors.white70)),
+          ),
+        ],
+      ),
+      body: StreamBuilder<List<Orden>>(
+        stream: _ordenRepo.watchAbiertas(auth.tenantId),
+        builder: (context, snap) {
+          final ordenes = snap.data ?? [];
+          if (ordenes.isEmpty) {
+            return const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.receipt_long_outlined,
+                      size: 72, color: Colors.black26),
+                  SizedBox(height: 12),
+                  Text('No hay ventas pendientes',
+                      style: TextStyle(color: Colors.black45, fontSize: 16)),
+                ],
+              ),
+            );
+          }
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: ordenes.length,
+            itemBuilder: (ctx, i) {
+              final orden = ordenes[i];
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+                child: ListTile(
+                  onTap: () => _seleccionarOrden(orden),
+                  leading: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      orden.tipo == 'mesa'
+                          ? Icons.table_restaurant
+                          : orden.tipo == 'domicilio'
+                              ? Icons.delivery_dining
+                              : Icons.shopping_bag_outlined,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  title: Text(orden.etiqueta,
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text(
+                    '${orden.items.length} ítems · ${_fmt.format(orden.total)} · ${_fmtFecha.format(orden.fechaCreacion)}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  // ─── Vista: POS completo ──────────────────────────────────────────────────
+
+  Widget _buildPOSView() {
+    final auth = context.read<AuthProvider>();
+    return Column(
+      children: [
+        _buildPOSTopBar(auth),
+        Expanded(
+          child: LayoutBuilder(builder: (ctx, c) {
+            if (c.maxWidth >= 860) {
+              return Row(
+                children: [
+                  Expanded(
+                      flex: 3,
+                      child:
+                          _buildCatalogo(auth.tenantId, _ordenSeleccionada!)),
+                  Container(
+                    width: 290,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border:
+                          Border(left: BorderSide(color: Colors.grey.shade200)),
+                    ),
+                    child: _buildCarritoPanel(_ordenSeleccionada!, auth),
+                  ),
+                ],
+              );
+            }
+            return DefaultTabController(
+              length: 2,
+              child: Column(
+                children: [
+                  TabBar(
+                    tabs: const [
+                      Tab(text: 'Catálogo'),
+                      Tab(text: 'Carrito'),
+                    ],
+                    labelColor: AppColors.primary,
+                    indicatorColor: AppColors.accent,
+                  ),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        _buildCatalogo(auth.tenantId, _ordenSeleccionada!),
+                        _buildCarritoPanel(_ordenSeleccionada!, auth),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPOSTopBar(AuthProvider auth) {
+    final orden = _ordenSeleccionada;
+    return Container(
+      color: const Color(0xFF171B21),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        children: [
+          if (orden != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                  color: Colors.white10,
+                  borderRadius: BorderRadius.circular(6)),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    orden.tipo == 'mesa'
+                        ? Icons.table_restaurant
+                        : Icons.receipt_outlined,
+                    color: AppColors.accent,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(orden.etiqueta,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13)),
+                ],
+              ),
+            ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _POSTopBtn(
+                      icon: Icons.add_circle_outline,
+                      label: 'Nueva',
+                      onTap: _irANuevaVenta),
+                  _POSTopBtn(
+                      icon: Icons.pending_actions,
+                      label: 'Pendientes',
+                      onTap: _irAVentasPendientes),
+                  _POSTopBtn(
+                      icon: Icons.home_outlined,
+                      label: 'Inicio',
+                      onTap: _irAEntrada),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          FilledButton.icon(
+            onPressed: _totalLocal > 0 ? () => _abrirCobrar(auth) : null,
+            icon: const Icon(Icons.payments_outlined, size: 16),
+            label: const Text('COBRAR',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.green.shade600,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _abrirCobrar(AuthProvider auth) async {
+    await _guardarCarrito();
+    if (!mounted) return;
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CobrarScreen(
+          orden: _ordenSeleccionada!.copyWith(items: _carritoLocal),
+          tenantId: auth.tenantId,
+          vendedor: auth.loginUsername,
+          ordenRepo: _ordenRepo,
+        ),
+      ),
+    );
+    if (result == true) {
+      _irAEntrada();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✓ Venta registrada — ${_fmt.format(_totalLocal)}'),
+            backgroundColor: Colors.green.shade600,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _guardarCarrito() async {
+    if (_ordenSeleccionada == null) return;
+    await _ordenRepo.updateItems(_ordenSeleccionada!.id, _carritoLocal);
+    setState(() => _ordenSeleccionada =
+        _ordenSeleccionada!.copyWith(items: _carritoLocal));
+  }
+
+  Future<void> _mostrarMenuMasOpciones(AuthProvider auth) async {
+    await showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Más Opciones',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            const SizedBox(height: 8),
+            ListTile(
+              leading: const Icon(Icons.merge_type, color: AppColors.primary),
+              title: const Text('Unir Pedido'),
+              subtitle: const Text('Fusionar con otra orden abierta'),
+              onTap: () {
+                Navigator.pop(context);
+                _mostrarUnirPedido(auth.tenantId);
+              },
+            ),
+            ListTile(
+              leading:
+                  const Icon(Icons.call_split_outlined, color: Colors.teal),
+              title: const Text('Cobro Parcial'),
+              subtitle: const Text('Dividir cuenta ítem por ítem'),
+              onTap: () {
+                Navigator.pop(context);
+                _mostrarCobroParcial();
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading:
+                  const Icon(Icons.add_circle_outline, color: Colors.green),
+              title: const Text('Ingreso de Efectivo'),
+              onTap: () {
+                Navigator.pop(context);
+                _mostrarMovimientoCaja('ingreso', auth);
+              },
+            ),
+            ListTile(
+              leading:
+                  const Icon(Icons.remove_circle_outline, color: Colors.red),
+              title: const Text('Egreso de Efectivo'),
+              onTap: () {
+                Navigator.pop(context);
+                _mostrarMovimientoCaja('egreso', auth);
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.delete_sweep, color: Colors.orange),
+              title: const Text('Limpiar Pedido'),
+              onTap: () {
+                Navigator.pop(context);
+                _limpiarOrden();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _limpiarOrden() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Limpiar orden'),
+        content: const Text('¿Eliminar todos los ítems?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Limpiar'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      setState(() => _carritoLocal = []);
+      await _guardarCarrito();
+    }
+  }
+
+  Future<void> _mostrarUnirPedido(String tenantId) async {
+    if (_ordenSeleccionada == null) return;
+    await _guardarCarrito();
+    await showDialog(
+      context: context,
+      builder: (_) => _UnirPedidoDialog(
+        ordenActual: _ordenSeleccionada!,
+        ordenRepo: _ordenRepo,
+        tenantId: tenantId,
+        onUnida: (ord) {
+          setState(() {
+            _ordenSeleccionada = ord;
+            _carritoLocal = List.from(ord.items);
+          });
+        },
+      ),
+    );
+  }
+
+  Future<void> _mostrarCobroParcial() async {
+    if (_ordenSeleccionada == null || _carritoLocal.isEmpty) return;
+    await _guardarCarrito();
+    await showDialog(
+      context: context,
+      builder: (_) => _CobroParcialDialog(
+        orden: _ordenSeleccionada!.copyWith(items: _carritoLocal),
+        ordenRepo: _ordenRepo,
+        onPagada: _irAEntrada,
+      ),
+    );
+  }
+
+  Future<void> _mostrarMovimientoCaja(String tipo, AuthProvider auth) async {
+    await showDialog(
+      context: context,
+      builder: (_) => _MovimientoCajaDialog(
+        tipo: tipo,
+        loginUsername: auth.loginUsername,
+        tenantId: auth.tenantId,
+      ),
+    );
+  }
+
+  // ─── (Mantiene el antiguo flujo de toolbar inline como builder helper) ────
+
+  Widget _buildToolbar_old(BuildContext context, String tenantId,
+      String vendedor, List<Orden> todasOrdenes) {
     final chips = <_FiltroChip>[
       const _FiltroChip('todos', 'Todos', Icons.grid_view_rounded),
       if (_esRestaurante)
@@ -596,21 +1224,34 @@ class _FacturacionTabState extends State<FacturacionTab> {
                   bold: true,
                   large: true),
               const SizedBox(height: 10),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: _carritoLocal.isEmpty
-                      ? null
-                      : () => _mostrarPagarDialog(context, orden, auth),
-                  icon: const Icon(Icons.payment),
-                  label: Text('Pagar ${_fmt.format(_totalLocal)}'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.success,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    textStyle: const TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.bold),
+              Row(
+                children: [
+                  // Botón "+" opciones
+                  OutlinedButton(
+                    onPressed: () => _mostrarMenuMasOpciones(auth),
+                    style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 10),
+                        minimumSize: Size.zero),
+                    child: const Icon(Icons.more_horiz, size: 20),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: _carritoLocal.isEmpty
+                          ? null
+                          : () => _abrirCobrar(auth),
+                      icon: const Icon(Icons.payments_outlined, size: 16),
+                      label: Text('Cobrar ${_fmt.format(_totalLocal)}'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.green.shade600,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        textStyle: const TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1565,6 +2206,581 @@ class _MetodoChip extends StatelessWidget {
       labelStyle: TextStyle(
           color: isSelected ? AppColors.primary : Colors.black87, fontSize: 12),
       checkmarkColor: AppColors.primary,
+    );
+  }
+}
+
+// ─── Widgets nuevos ────────────────────────────────────────────────────────────
+
+class _EntradaButton extends StatelessWidget {
+  const _EntradaButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: 180,
+        height: 160,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+                color: color.withOpacity(0.18),
+                blurRadius: 12,
+                offset: const Offset(0, 4))
+          ],
+          border: Border.all(color: color.withOpacity(0.25)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                  color: color.withOpacity(0.1), shape: BoxShape.circle),
+              child: Icon(icon, size: 32, color: color),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  color: color,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  height: 1.3),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TipoVentaCard extends StatelessWidget {
+  const _TipoVentaCard({
+    required this.icon,
+    required this.label,
+    required this.descripcion,
+    required this.color,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String label, descripcion;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        width: 180,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withOpacity(0.3)),
+          boxShadow: [
+            BoxShadow(
+                color: color.withOpacity(0.12),
+                blurRadius: 10,
+                offset: const Offset(0, 3))
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 40, color: color),
+            const SizedBox(height: 12),
+            Text(label,
+                style: TextStyle(
+                    fontWeight: FontWeight.bold, fontSize: 14, color: color)),
+            const SizedBox(height: 4),
+            Text(descripcion,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.black45, fontSize: 11)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MesaChipPOS extends StatelessWidget {
+  const _MesaChipPOS({required this.mesa, required this.ocupada, this.onTap});
+  final Mesa mesa;
+  final bool ocupada;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        width: 90,
+        height: 90,
+        decoration: BoxDecoration(
+          color: ocupada ? Colors.red.shade50 : Colors.green.shade50,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+              color: ocupada ? Colors.red.shade200 : Colors.green.shade300,
+              width: 1.5),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.table_restaurant,
+                size: 26, color: ocupada ? Colors.red : Colors.green),
+            const SizedBox(height: 4),
+            Text(mesa.nombre,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                style: TextStyle(
+                    fontSize: 11,
+                    color:
+                        ocupada ? Colors.red.shade700 : Colors.green.shade800,
+                    fontWeight: FontWeight.bold)),
+            if (ocupada)
+              const Text('Ocupada',
+                  style: TextStyle(fontSize: 9, color: Colors.red)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _POSTopBtn extends StatelessWidget {
+  const _POSTopBtn(
+      {required this.icon, required this.label, required this.onTap});
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        margin: const EdgeInsets.only(right: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18, color: Colors.white60),
+            const SizedBox(height: 2),
+            Text(label,
+                style: const TextStyle(color: Colors.white60, fontSize: 10)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Diálogo Unir Pedido ──────────────────────────────────────────────────────
+
+class _UnirPedidoDialog extends StatelessWidget {
+  const _UnirPedidoDialog({
+    required this.ordenActual,
+    required this.ordenRepo,
+    required this.tenantId,
+    required this.onUnida,
+  });
+  final Orden ordenActual;
+  final OrdenRepository ordenRepo;
+  final String tenantId;
+  final ValueChanged<Orden> onUnida;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Unir Pedido'),
+      content: SizedBox(
+        width: 380,
+        child: StreamBuilder<List<Orden>>(
+          stream: ordenRepo.watchAbiertas(tenantId),
+          builder: (ctx, snap) {
+            final otras =
+                (snap.data ?? []).where((o) => o.id != ordenActual.id).toList();
+            if (otras.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Text('No hay otras órdenes abiertas para unir.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.black45)),
+              );
+            }
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: otras
+                  .map((o) => ListTile(
+                        leading: const Icon(Icons.receipt_outlined),
+                        title: Text(o.etiqueta),
+                        subtitle: Text(
+                            '${o.items.length} ítems · ${NumberFormat('\$#,##0.00', 'en_US').format(o.total)}'),
+                        trailing: const Icon(Icons.merge_type,
+                            color: AppColors.primary),
+                        onTap: () async {
+                          final merged =
+                              List<OrdenItem>.from(ordenActual.items);
+                          for (final item in o.items) {
+                            final idx = merged.indexWhere(
+                                (i) => i.productoId == item.productoId);
+                            if (idx >= 0) {
+                              merged[idx] = merged[idx].conCantidad(
+                                  merged[idx].cantidad + item.cantidad);
+                            } else {
+                              merged.add(item);
+                            }
+                          }
+                          await ordenRepo.updateItems(ordenActual.id, merged);
+                          await ordenRepo.cancelar(o.id);
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          onUnida(ordenActual.copyWith(items: merged));
+                        },
+                      ))
+                  .toList(),
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar')),
+      ],
+    );
+  }
+}
+
+// ─── Diálogo Cobro Parcial ────────────────────────────────────────────────────
+
+class _CobroParcialDialog extends StatefulWidget {
+  const _CobroParcialDialog({
+    required this.orden,
+    required this.ordenRepo,
+    required this.onPagada,
+  });
+  final Orden orden;
+  final OrdenRepository ordenRepo;
+  final VoidCallback onPagada;
+
+  @override
+  State<_CobroParcialDialog> createState() => _CobroParcialDialogState();
+}
+
+class _CobroParcialDialogState extends State<_CobroParcialDialog> {
+  int _numPersonas = 2;
+  late List<Set<int>> _seleccionadas;
+
+  @override
+  void initState() {
+    super.initState();
+    _seleccionadas = List.generate(_numPersonas, (_) => <int>{});
+  }
+
+  double _totalPersona(int p) => _seleccionadas[p]
+      .fold(0.0, (acc, i) => acc + widget.orden.items[i].subtotal);
+
+  final _nf = NumberFormat('\$#,##0.00', 'en_US');
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Row(
+        children: [
+          const Text('Cobro Parcial'),
+          const Spacer(),
+          IconButton(
+            onPressed: _numPersonas < 8
+                ? () => setState(() {
+                      _numPersonas++;
+                      _seleccionadas.add(<int>{});
+                    })
+                : null,
+            icon: const Icon(Icons.person_add_outlined, size: 18),
+            tooltip: 'Agregar persona',
+          ),
+          Text('$_numPersonas pers.',
+              style: const TextStyle(fontSize: 12, color: Colors.black45)),
+        ],
+      ),
+      content: SizedBox(
+        width: 540,
+        height: 380,
+        child: SingleChildScrollView(
+          child: Table(
+            columnWidths: {
+              0: const FlexColumnWidth(3),
+              for (int p = 0; p < _numPersonas; p++)
+                p + 1: const FixedColumnWidth(72),
+            },
+            border: TableBorder.all(color: Colors.grey.shade200),
+            children: [
+              TableRow(
+                decoration: BoxDecoration(color: Colors.grey.shade100),
+                children: [
+                  const TableCell(
+                      child: Padding(
+                          padding: EdgeInsets.all(6),
+                          child: Text('Ítem',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 12)))),
+                  for (int p = 0; p < _numPersonas; p++)
+                    TableCell(
+                      child: Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: Text('P${p + 1}',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 12)),
+                      ),
+                    ),
+                ],
+              ),
+              for (int i = 0; i < widget.orden.items.length; i++)
+                TableRow(children: [
+                  TableCell(
+                    child: Padding(
+                      padding: const EdgeInsets.all(6),
+                      child: Text(
+                        '${widget.orden.items[i].nombre} x${widget.orden.items[i].cantidad.toInt()} — ${_nf.format(widget.orden.items[i].subtotal)}',
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                    ),
+                  ),
+                  for (int p = 0; p < _numPersonas; p++)
+                    TableCell(
+                      child: Checkbox(
+                        value: _seleccionadas[p].contains(i),
+                        onChanged: (v) => setState(() {
+                          for (final s in _seleccionadas) s.remove(i);
+                          if (v == true) _seleccionadas[p].add(i);
+                        }),
+                      ),
+                    ),
+                ]),
+              TableRow(
+                decoration: BoxDecoration(color: Colors.grey.shade50),
+                children: [
+                  const TableCell(
+                      child: Padding(
+                          padding: EdgeInsets.all(6),
+                          child: Text('TOTAL',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 12)))),
+                  for (int p = 0; p < _numPersonas; p++)
+                    TableCell(
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Text(_nf.format(_totalPersona(p)),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                                color: AppColors.primary)),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar')),
+        FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: Colors.green.shade600),
+          onPressed: () async {
+            final asignados = _seleccionadas.expand((s) => s).toSet();
+            if (asignados.length < widget.orden.items.length) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text('Asigna todos los ítems primero')));
+              return;
+            }
+            for (int p = 0; p < _numPersonas; p++) {
+              if (_seleccionadas[p].isEmpty) continue;
+              final items = _seleccionadas[p]
+                  .map((idx) => widget.orden.items[idx])
+                  .toList();
+              await widget.ordenRepo.pagar(
+                widget.orden.copyWith(items: items),
+                'efectivo',
+                observaciones: 'Cobro parcial Persona ${p + 1}',
+              );
+            }
+            if (mounted) Navigator.pop(context);
+            widget.onPagada();
+          },
+          child: const Text('Cobrar por separado'),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Diálogo Movimiento de Caja ───────────────────────────────────────────────
+
+class _MovimientoCajaDialog extends StatefulWidget {
+  const _MovimientoCajaDialog({
+    required this.tipo,
+    required this.loginUsername,
+    required this.tenantId,
+  });
+  final String tipo, loginUsername, tenantId;
+
+  @override
+  State<_MovimientoCajaDialog> createState() => _MovimientoCajaDialogState();
+}
+
+class _MovimientoCajaDialogState extends State<_MovimientoCajaDialog> {
+  final _passCtrl = TextEditingController();
+  final _montoCtrl = TextEditingController();
+  final _obsCtrl = TextEditingController();
+  bool _saving = false;
+  String? _error;
+  bool _showPass = false;
+
+  @override
+  void dispose() {
+    _passCtrl.dispose();
+    _montoCtrl.dispose();
+    _obsCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _confirmar() async {
+    final monto = double.tryParse(_montoCtrl.text.trim());
+    if (monto == null || monto <= 0) {
+      setState(() => _error = 'Ingresa un monto válido');
+      return;
+    }
+    if (_passCtrl.text.trim().isEmpty) {
+      setState(() => _error = 'Ingresa la contraseña de administrador');
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      final db = FirebaseFirestore.instanceFor(
+          app: Firebase.app(), databaseURL: 'inventario-bdd');
+      final snap = await db
+          .collection('usuarios')
+          .where('tenant_id', isEqualTo: widget.tenantId)
+          .where('login_username', isEqualTo: widget.loginUsername)
+          .where('password', isEqualTo: _passCtrl.text.trim())
+          .limit(1)
+          .get();
+      if (snap.docs.isEmpty) {
+        setState(() => _error = 'Contraseña incorrecta o sin permisos');
+        return;
+      }
+      await db.collection('movimientos_caja').add({
+        'tenant_id': widget.tenantId,
+        'tipo': widget.tipo,
+        'monto': monto,
+        'observaciones': _obsCtrl.text.trim(),
+        'registrado_por': widget.loginUsername,
+        'fecha': DateTime.now().toIso8601String(),
+      });
+      if (mounted) Navigator.pop(context);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final esIngreso = widget.tipo == 'ingreso';
+    return AlertDialog(
+      title: Row(
+        children: [
+          Icon(esIngreso ? Icons.add_circle : Icons.remove_circle,
+              color: esIngreso ? Colors.green : Colors.red),
+          const SizedBox(width: 8),
+          Text(esIngreso ? 'Ingreso de Efectivo' : 'Egreso de Efectivo'),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _montoCtrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              labelText: 'Monto *',
+              prefixText: '\$ ',
+              border: const OutlineInputBorder(),
+              filled: true,
+              fillColor: esIngreso ? Colors.green.shade50 : Colors.red.shade50,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _obsCtrl,
+            decoration: const InputDecoration(
+                labelText: 'Observación', border: OutlineInputBorder()),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _passCtrl,
+            obscureText: !_showPass,
+            decoration: InputDecoration(
+              labelText: 'Contraseña Admin *',
+              border: const OutlineInputBorder(),
+              suffixIcon: IconButton(
+                icon: Icon(_showPass ? Icons.visibility_off : Icons.visibility,
+                    size: 18),
+                onPressed: () => setState(() => _showPass = !_showPass),
+              ),
+            ),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 8),
+            Text(_error!,
+                style: const TextStyle(color: Colors.red, fontSize: 12)),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar')),
+        FilledButton(
+          onPressed: _saving ? null : _confirmar,
+          style: FilledButton.styleFrom(
+              backgroundColor: esIngreso ? Colors.green : Colors.red),
+          child: _saving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white))
+              : Text(esIngreso ? 'Registrar Ingreso' : 'Registrar Egreso'),
+        ),
+      ],
     );
   }
 }

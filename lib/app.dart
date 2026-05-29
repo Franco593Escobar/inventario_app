@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:inventario_app/core/constants/app_colors.dart';
 import 'package:inventario_app/presentation/providers/auth_provider.dart';
-import 'package:inventario_app/presentation/screens/dashboard/superadmin_dashboard_screen.dart';
-import 'package:inventario_app/presentation/screens/dashboard/staff_dashboard_screen.dart';
 import 'package:inventario_app/presentation/screens/login/login_screen.dart';
+import 'package:inventario_app/presentation/widgets/app_shell.dart';
 
 class InventarioApp extends StatelessWidget {
   const InventarioApp({super.key});
@@ -13,25 +12,11 @@ class InventarioApp extends StatelessWidget {
     switch (auth.rol.toLowerCase()) {
       case 'superadmin':
       case 'admin':
-        return SuperadminDashboardScreen(
-          nombreUsuario: auth.nombreUsuario,
-          tenantNombre: auth.tenantNombre,
-          sucursalNombre: auth.sucursalNombre,
-          tipoComercio: auth.tipoComercio,
-          rol: auth.rol,
-          onLogout: auth.logout,
-        );
       case 'cajero':
       case 'bodeguero':
       case 'mesero':
       case 'vendedor':
-        return StaffDashboardScreen(
-          nombreUsuario: auth.nombreUsuario,
-          tenantNombre: auth.tenantNombre,
-          tipoComercio: auth.tipoComercio,
-          rol: auth.rol,
-          onLogout: auth.logout,
-        );
+        return const AppShell();
       default:
         return Scaffold(
           appBar: AppBar(
