@@ -64,7 +64,7 @@ class _ReportesScreenState extends State<ReportesScreen>
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6FA),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF171B21),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
         title: const Text('Reportes'),
         bottom: TabBar(

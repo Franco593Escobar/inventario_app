@@ -72,6 +72,30 @@ class SuperadminDashboardScreen extends StatelessWidget {
     };
   }
 
+  Future<void> _confirmarSalida(
+      BuildContext context, VoidCallback callback) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Cerrar Sesión'),
+        content:
+            const Text('¿Estás seguro de que deseas salir de la aplicación?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Sí, salir'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) callback();
+  }
+
   @override
   Widget build(BuildContext context) {
     // ── Módulos según rol ─────────────────────────────────────
@@ -160,307 +184,315 @@ class SuperadminDashboardScreen extends StatelessWidget {
                 _ => Icons.cases_outlined,
               };
 
-        return Scaffold(
-          backgroundColor: const Color(0xFFF2F5FA),
-          // ── Pie de página fijo ──────────────────────────────────
-          bottomNavigationBar: Container(
-            height: 38,
-            color: brandColor,
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  '© BIOS Soluciones Informáticas — Todos los derechos reservados',
-                  style: TextStyle(color: Colors.white38, fontSize: 11),
-                ),
-                Text(
-                  _tenantLabel,
-                  style: const TextStyle(
-                    color: Colors.white60,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+        return PopScope(
+          canPop: false,
+          onPopInvoked: (didPop) {
+            if (!didPop) _confirmarSalida(context, onLogout);
+          },
+          child: Scaffold(
+            backgroundColor: const Color(0xFFF2F5FA),
+            // ── Pie de página fijo ──────────────────────────────────
+            bottomNavigationBar: Container(
+              height: 38,
+              color: brandColor,
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    '© BIOS Soluciones Informáticas — Todos los derechos reservados',
+                    style: TextStyle(color: Colors.white38, fontSize: 11),
                   ),
-                ),
-              ],
-            ),
-          ),
-          appBar: AppBar(
-            backgroundColor: brandColor,
-            foregroundColor: Colors.white,
-            elevation: 0,
-            title: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (logoB64 != null) ...[
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(6),
-                    child: Image.memory(
-                      base64Decode(logoB64),
-                      width: 32,
-                      height: 32,
-                      fit: BoxFit.contain,
+                  Text(
+                    _tenantLabel,
+                    style: const TextStyle(
+                      color: Colors.white60,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(width: 10),
                 ],
-                if (isSuperadmin)
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Centro de Operación Multinegocio',
-                        style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.white70,
-                            fontWeight: FontWeight.w400),
-                      ),
-                      Text(
-                        'Liris',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  )
-                else
-                  Text(_tenantLabel),
-              ],
+              ),
             ),
-            actions: [
-              Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: Center(
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: Colors.white30),
+            appBar: AppBar(
+              backgroundColor: brandColor,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              title: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (logoB64 != null) ...[
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: Image.memory(
+                        base64Decode(logoB64),
+                        width: 32,
+                        height: 32,
+                        fit: BoxFit.contain,
+                      ),
                     ),
-                    child: Row(
+                    const SizedBox(width: 10),
+                  ],
+                  if (isSuperadmin)
+                    const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(tenantIcon, size: 15, color: Colors.white),
-                        const SizedBox(width: 6),
                         Text(
-                          _tenantLabel,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                            fontSize: 13,
-                          ),
+                          'Centro de Operación Multinegocio',
+                          style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.white70,
+                              fontWeight: FontWeight.w400),
                         ),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.20),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            rol.toLowerCase(),
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                        Text(
+                          'Liris',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                       ],
+                    )
+                  else
+                    Text(_tenantLabel),
+                ],
+              ),
+              actions: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: Colors.white30),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(tenantIcon, size: 15, color: Colors.white),
+                          const SizedBox(width: 6),
+                          Text(
+                            _tenantLabel,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.20),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              rol.toLowerCase(),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              IconButton(
-                onPressed: onLogout,
-                icon: const Icon(Icons.logout),
-                tooltip: 'Cerrar Sesion',
-              ),
-            ],
-          ),
-          body: LayoutBuilder(
-            builder: (context, constraints) {
-              final crossAxisCount = constraints.maxWidth >= 1100
-                  ? 3
-                  : constraints.maxWidth >= 700
-                      ? 2
-                      : 1;
+                IconButton(
+                  onPressed: () => _confirmarSalida(context, onLogout),
+                  icon: const Icon(Icons.logout),
+                  tooltip: 'Cerrar Sesión',
+                ),
+              ],
+            ),
+            body: LayoutBuilder(
+              builder: (context, constraints) {
+                final crossAxisCount = constraints.maxWidth >= 1100
+                    ? 3
+                    : constraints.maxWidth >= 700
+                        ? 2
+                        : 1;
 
-              return SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 1400),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(28),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF12213D), Color(0xFF284A83)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(28),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x22000000),
-                                blurRadius: 22,
-                                offset: Offset(0, 10),
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1400),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(28),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF12213D), Color(0xFF284A83)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
                               ),
-                            ],
-                          ),
-                          child: Wrap(
-                            spacing: 24,
-                            runSpacing: 24,
-                            alignment: WrapAlignment.spaceBetween,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              SizedBox(
-                                width: 720,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                              borderRadius: BorderRadius.circular(28),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x22000000),
+                                  blurRadius: 22,
+                                  offset: Offset(0, 10),
+                                ),
+                              ],
+                            ),
+                            child: Wrap(
+                              spacing: 24,
+                              runSpacing: 24,
+                              alignment: WrapAlignment.spaceBetween,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 720,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Dashboard Superadmin Multinegocio',
+                                        style: TextStyle(
+                                          fontSize: 34,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Text(
+                                        'Bienvenido, ${_capitalizarNombre(nombreUsuario)}. Administra Negocios, Sucursales, Operación y Rentabilidad desde una Vista más Vendible para Web.',
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          color: Colors.white.withOpacity(0.86),
+                                          height: 1.5,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 18),
+                                      Wrap(
+                                        spacing: 10,
+                                        runSpacing: 10,
+                                        children: const [
+                                          _HeroChip(
+                                              label: 'Multinegocio listo'),
+                                          _HeroChip(label: 'Web + Android'),
+                                          _HeroChip(label: 'POS + Reportes'),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Wrap(
+                                  spacing: 12,
+                                  runSpacing: 12,
                                   children: [
-                                    const Text(
-                                      'Dashboard Superadmin Multinegocio',
-                                      style: TextStyle(
-                                        fontSize: 34,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
+                                    _ExecutiveMiniCard(
+                                      title: 'Rol activo',
+                                      value: rol,
                                     ),
-                                    const SizedBox(height: 10),
-                                    Text(
-                                      'Bienvenido, ${_capitalizarNombre(nombreUsuario)}. Administra Negocios, Sucursales, Operación y Rentabilidad desde una Vista más Vendible para Web.',
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        color: Colors.white.withOpacity(0.86),
-                                        height: 1.5,
-                                      ),
+                                    _ExecutiveMiniCard(
+                                      title: 'Sucursal',
+                                      value: _sucursalLabel,
                                     ),
-                                    const SizedBox(height: 18),
-                                    Wrap(
-                                      spacing: 10,
-                                      runSpacing: 10,
-                                      children: const [
-                                        _HeroChip(label: 'Multinegocio listo'),
-                                        _HeroChip(label: 'Web + Android'),
-                                        _HeroChip(label: 'POS + Reportes'),
-                                      ],
+                                    const _ExecutiveMiniCard(
+                                      title: 'Canal',
+                                      value: 'Web + Android',
                                     ),
                                   ],
                                 ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          Wrap(
+                            spacing: 16,
+                            runSpacing: 16,
+                            children: const [
+                              _ExecutiveMetricCard(
+                                title: 'Ventas del día',
+                                value: '\$3.240',
+                                detail: 'Meta diaria al 78%',
                               ),
-                              Wrap(
-                                spacing: 12,
-                                runSpacing: 12,
-                                children: [
-                                  _ExecutiveMiniCard(
-                                    title: 'Rol activo',
-                                    value: rol,
-                                  ),
-                                  _ExecutiveMiniCard(
-                                    title: 'Sucursal',
-                                    value: _sucursalLabel,
-                                  ),
-                                  const _ExecutiveMiniCard(
-                                    title: 'Canal',
-                                    value: 'Web + Android',
-                                  ),
+                              _ExecutiveMetricCard(
+                                title: 'Utilidad estimada',
+                                value: '\$980',
+                                detail: 'Margen controlado por negocio',
+                              ),
+                              _ExecutiveMetricCard(
+                                title: 'Negocios activos',
+                                value: '4',
+                                detail: '1 tenant con varias sucursales',
+                              ),
+                              _ExecutiveMetricCard(
+                                title: 'Alertas críticas',
+                                value: '6',
+                                detail: 'Stock, caja y metas',
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                          const Text(
+                            'Módulos de Operación',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: crossAxisCount,
+                              crossAxisSpacing: 16,
+                              mainAxisSpacing: 16,
+                              mainAxisExtent: 220,
+                            ),
+                            itemCount: modules.length,
+                            itemBuilder: (context, index) {
+                              final module = modules[index];
+                              return _DashboardCard(module: module);
+                            },
+                          ),
+                          const SizedBox(height: 24),
+                          Wrap(
+                            spacing: 16,
+                            runSpacing: 16,
+                            children: const [
+                              _InsightPanel(
+                                title: 'Valor Comercial',
+                                items: [
+                                  'Operación centralizada para varios negocios',
+                                  'Base para kiosko, cocina y delivery',
+                                  'Dashboard ejecutivo apto para demo comercial',
+                                ],
+                              ),
+                              _InsightPanel(
+                                title: 'Prioridades Sugeridas',
+                                items: [
+                                  'Tenants y sucursales reales',
+                                  'Arqueo y caja por turno',
+                                  'Restaurante: mesas, KDS y pagos mixtos',
                                 ],
                               ),
                             ],
                           ),
-                        ),
-                        const SizedBox(height: 24),
-                        Wrap(
-                          spacing: 16,
-                          runSpacing: 16,
-                          children: const [
-                            _ExecutiveMetricCard(
-                              title: 'Ventas del día',
-                              value: '\$3.240',
-                              detail: 'Meta diaria al 78%',
-                            ),
-                            _ExecutiveMetricCard(
-                              title: 'Utilidad estimada',
-                              value: '\$980',
-                              detail: 'Margen controlado por negocio',
-                            ),
-                            _ExecutiveMetricCard(
-                              title: 'Negocios activos',
-                              value: '4',
-                              detail: '1 tenant con varias sucursales',
-                            ),
-                            _ExecutiveMetricCard(
-                              title: 'Alertas críticas',
-                              value: '6',
-                              detail: 'Stock, caja y metas',
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-                        const Text(
-                          'Módulos de Operación',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate:
-                              SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: crossAxisCount,
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 16,
-                            mainAxisExtent: 220,
-                          ),
-                          itemCount: modules.length,
-                          itemBuilder: (context, index) {
-                            final module = modules[index];
-                            return _DashboardCard(module: module);
-                          },
-                        ),
-                        const SizedBox(height: 24),
-                        Wrap(
-                          spacing: 16,
-                          runSpacing: 16,
-                          children: const [
-                            _InsightPanel(
-                              title: 'Valor Comercial',
-                              items: [
-                                'Operación centralizada para varios negocios',
-                                'Base para kiosko, cocina y delivery',
-                                'Dashboard ejecutivo apto para demo comercial',
-                              ],
-                            ),
-                            _InsightPanel(
-                              title: 'Prioridades Sugeridas',
-                              items: [
-                                'Tenants y sucursales reales',
-                                'Arqueo y caja por turno',
-                                'Restaurante: mesas, KDS y pagos mixtos',
-                              ],
-                            ),
-                          ],
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
-          ),
-        );
+                );
+              },
+            ),
+          ), // Scaffold
+        ); // PopScope
       }, // Consumer builder
     ); // Consumer
   }

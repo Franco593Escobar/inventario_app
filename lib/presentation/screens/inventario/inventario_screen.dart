@@ -133,7 +133,7 @@ class _InventarioScreenState extends State<InventarioScreen>
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6FA),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF171B21),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
         title: const Text('Inventario'),
         bottom: TabBar(

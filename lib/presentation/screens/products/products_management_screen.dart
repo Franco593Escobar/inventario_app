@@ -108,7 +108,13 @@ class _ProductsManagementScreenState extends State<ProductsManagementScreen> {
         text: product?.posicionPantalla.toString() ?? '0');
     final descCtrl = TextEditingController(text: product?.descripcion ?? '');
 
-    final kImpuestosStd = ['IVA 0%', 'IVA 12%', 'IVA 15%', 'Exento', 'No objeto'];
+    final kImpuestosStd = [
+      'IVA 0%',
+      'IVA 12%',
+      'IVA 15%',
+      'Exento',
+      'No objeto'
+    ];
     final rawImpuesto = product?.impuesto ?? 'IVA 15%';
     String impuesto =
         kImpuestosStd.contains(rawImpuesto) ? rawImpuesto : 'Personalizado...';
@@ -226,12 +232,11 @@ class _ProductsManagementScreenState extends State<ProductsManagementScreen> {
                       const SizedBox(height: 4),
                       DropdownButtonFormField<String>(
                         value: proveedorId,
-                        decoration: const InputDecoration(
-                            border: OutlineInputBorder()),
+                        decoration:
+                            const InputDecoration(border: OutlineInputBorder()),
                         items: [
                           const DropdownMenuItem(
-                              value: null,
-                              child: Text('— Sin proveedor —')),
+                              value: null, child: Text('— Sin proveedor —')),
                           ...proveedores.map((p) => DropdownMenuItem(
                                 value: p.id,
                                 child: Text(p.nombre),
@@ -263,8 +268,8 @@ class _ProductsManagementScreenState extends State<ProductsManagementScreen> {
                       const SizedBox(height: 4),
                       DropdownButtonFormField<String>(
                         value: impuesto,
-                        decoration: const InputDecoration(
-                            border: OutlineInputBorder()),
+                        decoration:
+                            const InputDecoration(border: OutlineInputBorder()),
                         items: const [
                           DropdownMenuItem(
                               value: 'IVA 0%', child: Text('IVA 0%')),
@@ -337,10 +342,10 @@ class _ProductsManagementScreenState extends State<ProductsManagementScreen> {
                             if (impuesto == 'IVA 15%') factor = 1.15;
                             if (impuesto == 'IVA 12%') factor = 1.12;
                             if (impuesto == 'Personalizado...') {
-                              final pct = double.tryParse(
-                                      impuestoCustomCtrl.text
-                                          .trim()
-                                          .replaceAll('%', '')) ??
+                              final pct = double.tryParse(impuestoCustomCtrl
+                                      .text
+                                      .trim()
+                                      .replaceAll('%', '')) ??
                                   0;
                               factor = 1.0 + (pct / 100);
                             }
@@ -692,7 +697,8 @@ class _ProductsManagementScreenState extends State<ProductsManagementScreen> {
                 child: Scaffold(
                   backgroundColor: Colors.white,
                   appBar: AppBar(
-                    backgroundColor: AppColors.primary,
+                    backgroundColor:
+                        Theme.of(dialogContext).colorScheme.primary,
                     foregroundColor: Colors.white,
                     title: Text(
                         product == null ? 'Nuevo Producto' : 'Editar Producto'),

@@ -16,7 +16,7 @@ class SalonesScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF2F5FA),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF171B21),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
         automaticallyImplyLeading: false,
         title: const Text('Salones & Mesas'),
@@ -448,7 +448,8 @@ class _MesaDialog extends StatelessWidget {
             child: const Text('Cancelar')),
         FilledButton(
           onPressed: onSave,
-          style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
+          style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary),
           child: const Text('Guardar'),
         ),
       ],
@@ -549,7 +550,8 @@ class _SalonDialogState extends State<_SalonDialog> {
             child: const Text('Cancelar')),
         FilledButton(
           onPressed: _saving ? null : _save,
-          style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
+          style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary),
           child: _saving
               ? const SizedBox(
                   width: 18,
@@ -590,7 +592,7 @@ class _EmptyState extends StatelessWidget {
             icon: const Icon(Icons.add),
             label: const Text('Crear primer salón'),
             style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary,
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Colors.white),
           ),
         ],

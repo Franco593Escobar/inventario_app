@@ -155,7 +155,7 @@ class _CobrarScreenState extends State<CobrarScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF0F2F5),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF171B21),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
         title: Text('Cobrar — ${widget.orden.etiqueta}'),
         leading: IconButton(
@@ -1112,7 +1112,8 @@ class _NuevoClienteDialogState extends State<_NuevoClienteDialog> {
             child: const Text('Cancelar')),
         FilledButton(
           onPressed: _saving ? null : _guardar,
-          style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
+          style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary),
           child: _saving
               ? const SizedBox(
                   width: 18,

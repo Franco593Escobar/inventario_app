@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:inventario_app/core/constants/app_colors.dart';
 import 'package:inventario_app/presentation/providers/auth_provider.dart';
 import 'package:inventario_app/presentation/screens/inventario/inventario_screen.dart';
 import 'package:inventario_app/presentation/screens/products/products_management_screen.dart';
@@ -111,6 +110,30 @@ class StaffDashboardScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _confirmarSalida(
+      BuildContext context, VoidCallback callback) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Cerrar Sesión'),
+        content:
+            const Text('¿Estás seguro de que deseas salir de la aplicación?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Sí, salir'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) callback();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
@@ -128,215 +151,223 @@ class StaffDashboardScreen extends StatelessWidget {
 
         final modules = _modulesForRole();
 
-        return Scaffold(
-          backgroundColor: const Color(0xFFF2F5FA),
-          bottomNavigationBar: Container(
-            height: 38,
-            color: brandColor,
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  '© BIOS Soluciones Informáticas — Todos los derechos reservados',
-                  style: TextStyle(color: Colors.white38, fontSize: 11),
-                ),
-                Text(
-                  _tenantLabel,
-                  style: const TextStyle(
-                    color: Colors.white60,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+        return PopScope(
+          canPop: false,
+          onPopInvoked: (didPop) {
+            if (!didPop) _confirmarSalida(context, onLogout);
+          },
+          child: Scaffold(
+            backgroundColor: const Color(0xFFF2F5FA),
+            bottomNavigationBar: Container(
+              height: 38,
+              color: brandColor,
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    '© BIOS Soluciones Informáticas — Todos los derechos reservados',
+                    style: TextStyle(color: Colors.white38, fontSize: 11),
                   ),
-                ),
-              ],
-            ),
-          ),
-          appBar: AppBar(
-            backgroundColor: brandColor,
-            foregroundColor: Colors.white,
-            elevation: 0,
-            title: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (logoB64 != null) ...[
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(6),
-                    child: Image.memory(
-                      base64Decode(logoB64),
-                      width: 32,
-                      height: 32,
-                      fit: BoxFit.contain,
+                  Text(
+                    _tenantLabel,
+                    style: const TextStyle(
+                      color: Colors.white60,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(width: 10),
                 ],
-                Text(_tenantLabel),
+              ),
+            ),
+            appBar: AppBar(
+              backgroundColor: brandColor,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              title: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (logoB64 != null) ...[
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: Image.memory(
+                        base64Decode(logoB64),
+                        width: 32,
+                        height: 32,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                  ],
+                  Text(_tenantLabel),
+                ],
+              ),
+              actions: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: Colors.white30),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(tenantIcon, size: 15, color: Colors.white),
+                          const SizedBox(width: 6),
+                          Text(
+                            _tenantLabel,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.20),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              rol.toLowerCase(),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => _confirmarSalida(context, onLogout),
+                  icon: const Icon(Icons.logout),
+                  tooltip: 'Cerrar Sesión',
+                ),
               ],
             ),
-            actions: [
-              Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: Center(
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: Colors.white30),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(tenantIcon, size: 15, color: Colors.white),
-                        const SizedBox(width: 6),
-                        Text(
-                          _tenantLabel,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                            fontSize: 13,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.20),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            rol.toLowerCase(),
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              IconButton(
-                onPressed: onLogout,
-                icon: const Icon(Icons.logout),
-                tooltip: 'Cerrar Sesión',
-              ),
-            ],
-          ),
-          body: LayoutBuilder(
-            builder: (context, constraints) {
-              final crossAxisCount = constraints.maxWidth >= 900
-                  ? 3
-                  : constraints.maxWidth >= 600
-                      ? 2
-                      : 1;
+            body: LayoutBuilder(
+              builder: (context, constraints) {
+                final crossAxisCount = constraints.maxWidth >= 900
+                    ? 3
+                    : constraints.maxWidth >= 600
+                        ? 2
+                        : 1;
 
-              return SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 1200),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // ── Banner de bienvenida ──────────────────────────
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(28),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                brandColor,
-                                Color.lerp(brandColor, Colors.black, 0.2) ??
-                                    brandColor,
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1200),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // ── Banner de bienvenida ──────────────────────────
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(28),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  brandColor,
+                                  Color.lerp(brandColor, Colors.black, 0.2) ??
+                                      brandColor,
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(18),
                             ),
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          child: Row(
-                            children: [
-                              CircleAvatar(
-                                radius: 28,
-                                backgroundColor: Colors.white.withOpacity(0.25),
-                                child: const Icon(Icons.person_outline,
-                                    size: 28, color: Colors.white),
-                              ),
-                              const SizedBox(width: 20),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Hola, ${_capitalizarNombre(nombreUsuario)}',
-                                      style: const TextStyle(
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '${_capitalizarNombre(rol)} · ${_capitalizarNombre(tenantNombre.isNotEmpty ? tenantNombre : "Mi Negocio")}',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.white.withOpacity(0.85),
-                                      ),
-                                    ),
-                                  ],
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 28,
+                                  backgroundColor:
+                                      Colors.white.withOpacity(0.25),
+                                  child: const Icon(Icons.person_outline,
+                                      size: 28, color: Colors.white),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 20),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Hola, ${_capitalizarNombre(nombreUsuario)}',
+                                        style: const TextStyle(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${_capitalizarNombre(rol)} · ${_capitalizarNombre(tenantNombre.isNotEmpty ? tenantNombre : "Mi Negocio")}',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.white.withOpacity(0.85),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 28),
-                        // ── Módulos disponibles ───────────────────────────
-                        Text(
-                          'Módulos disponibles',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.blueGrey.shade700,
+                          const SizedBox(height: 28),
+                          // ── Módulos disponibles ───────────────────────────
+                          Text(
+                            'Módulos disponibles',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.blueGrey.shade700,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate:
-                              SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: crossAxisCount,
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 16,
-                            childAspectRatio: 1.6,
+                          const SizedBox(height: 16),
+                          GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: crossAxisCount,
+                              crossAxisSpacing: 16,
+                              mainAxisSpacing: 16,
+                              childAspectRatio: 1.6,
+                            ),
+                            itemCount: modules.length,
+                            itemBuilder: (context, index) {
+                              final module = modules[index];
+                              return _StaffModuleCard(
+                                module: module,
+                                brandColor: brandColor,
+                                onTap: module.isReady
+                                    ? () => _openModule(context, module.title)
+                                    : null,
+                              );
+                            },
                           ),
-                          itemCount: modules.length,
-                          itemBuilder: (context, index) {
-                            final module = modules[index];
-                            return _StaffModuleCard(
-                              module: module,
-                              brandColor: brandColor,
-                              onTap: module.isReady
-                                  ? () => _openModule(context, module.title)
-                                  : null,
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 40),
-                      ],
+                          const SizedBox(height: 40),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
-          ),
-        );
+                );
+              },
+            ),
+          ), // Scaffold
+        ); // PopScope
       },
     );
   }
@@ -364,7 +395,7 @@ class StaffDashboardScreen extends StatelessWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Módulo "$title" disponible próximamente'),
-            backgroundColor: AppColors.primary,
+            backgroundColor: Theme.of(context).colorScheme.primary,
           ),
         );
     }

@@ -187,7 +187,8 @@ class _CierreCajaTabState extends State<CierreCajaTab> {
                         label:
                             Text(_guardando ? 'Guardando...' : 'Cerrar Caja'),
                         style: FilledButton.styleFrom(
-                          backgroundColor: AppColors.primary,
+                          backgroundColor:
+                              Theme.of(context).colorScheme.primary,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           textStyle: const TextStyle(
                               fontSize: 15, fontWeight: FontWeight.bold),

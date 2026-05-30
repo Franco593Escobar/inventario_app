@@ -212,7 +212,7 @@ class _FacturacionTabState extends State<FacturacionTab> {
     return Scaffold(
       backgroundColor: const Color(0xFFF2F5FA),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF171B21),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
         automaticallyImplyLeading: false,
         leading: IconButton(
@@ -229,7 +229,7 @@ class _FacturacionTabState extends State<FacturacionTab> {
               icon: Icons.bolt,
               label: 'Venta Rápida',
               descripcion: 'Sin datos de cliente ni mesa',
-              color: AppColors.primary,
+              color: Theme.of(context).colorScheme.primary,
               onTap: () => _crearYAbrirOrden('rapida'),
             ),
             _TipoVentaCard(
@@ -293,7 +293,7 @@ class _FacturacionTabState extends State<FacturacionTab> {
         return Scaffold(
           backgroundColor: const Color(0xFFF2F5FA),
           appBar: AppBar(
-            backgroundColor: const Color(0xFF171B21),
+            backgroundColor: Theme.of(context).colorScheme.primary,
             foregroundColor: Colors.white,
             automaticallyImplyLeading: false,
             leading: IconButton(
@@ -328,7 +328,8 @@ class _FacturacionTabState extends State<FacturacionTab> {
                         icon: const Icon(Icons.bolt),
                         label: const Text('Continuar como Venta Rápida'),
                         style: FilledButton.styleFrom(
-                            backgroundColor: AppColors.primary),
+                            backgroundColor:
+                                Theme.of(context).colorScheme.primary),
                       ),
                     ],
                   ),
@@ -406,7 +407,7 @@ class _FacturacionTabState extends State<FacturacionTab> {
     return Scaffold(
       backgroundColor: const Color(0xFFF2F5FA),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF171B21),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
         automaticallyImplyLeading: false,
         leading: IconButton(
