@@ -157,6 +157,7 @@ class _CobrarScreenState extends State<CobrarScreen> {
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
+        centerTitle: true,
         title: Text('Cobrar — ${widget.orden.etiqueta}'),
         leading: IconButton(
           onPressed: () => Navigator.pop(context, false),

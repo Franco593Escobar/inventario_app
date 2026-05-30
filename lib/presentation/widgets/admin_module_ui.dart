@@ -24,9 +24,10 @@ class AdminModuleShell extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6FA),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF171B21),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
         elevation: 0,
+        centerTitle: true,
         title: Text(title),
       ),
       body: Center(

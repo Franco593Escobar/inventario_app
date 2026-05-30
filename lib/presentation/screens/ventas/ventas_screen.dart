@@ -39,6 +39,7 @@ class _VentasScreenState extends State<VentasScreen>
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
+        centerTitle: true,
         title: const Text('Ventas'),
         bottom: TabBar(
           controller: _tab,

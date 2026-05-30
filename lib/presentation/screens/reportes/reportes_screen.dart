@@ -66,6 +66,7 @@ class _ReportesScreenState extends State<ReportesScreen>
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
+        centerTitle: true,
         title: const Text('Reportes'),
         bottom: TabBar(
           controller: _tab,

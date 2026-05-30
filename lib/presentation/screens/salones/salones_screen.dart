@@ -19,6 +19,7 @@ class SalonesScreen extends StatelessWidget {
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
         automaticallyImplyLeading: false,
+        centerTitle: true,
         title: const Text('Salones & Mesas'),
         actions: [
           Padding(

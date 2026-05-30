@@ -215,6 +215,7 @@ class _FacturacionTabState extends State<FacturacionTab> {
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
         automaticallyImplyLeading: false,
+        centerTitle: true,
         leading: IconButton(
             onPressed: _irAEntrada, icon: const Icon(Icons.arrow_back)),
         title: const Text('Nueva Venta'),
@@ -296,6 +297,7 @@ class _FacturacionTabState extends State<FacturacionTab> {
             backgroundColor: Theme.of(context).colorScheme.primary,
             foregroundColor: Colors.white,
             automaticallyImplyLeading: false,
+            centerTitle: true,
             leading: IconButton(
                 onPressed: _irAEntrada, icon: const Icon(Icons.arrow_back)),
             title: const Text('Seleccionar Mesa'),
@@ -410,6 +412,7 @@ class _FacturacionTabState extends State<FacturacionTab> {
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
         automaticallyImplyLeading: false,
+        centerTitle: true,
         leading: IconButton(
             onPressed: _irAEntrada, icon: const Icon(Icons.arrow_back)),
         title: const Text('Ventas Pendientes'),

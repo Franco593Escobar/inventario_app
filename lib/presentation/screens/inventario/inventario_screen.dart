@@ -135,6 +135,7 @@ class _InventarioScreenState extends State<InventarioScreen>
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
+        centerTitle: true,
         title: const Text('Inventario'),
         bottom: TabBar(
           controller: _tab,
