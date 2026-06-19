@@ -21,6 +21,9 @@ class _ReportesScreenState extends State<ReportesScreen>
   late final TabController _tab;
   final VentaRepository _ventaRepo = VentaRepository();
   final ProductRepository _productRepo = ProductRepository();
+  String? _tenantIdForStreams;
+  Stream<List<Venta>>? _ventasStream;
+  Stream<List<Product>>? _productosStream;
 
   DateTime _desde = DateTime.now().subtract(const Duration(days: 30));
   DateTime _hasta = DateTime.now();
@@ -55,11 +58,29 @@ class _ReportesScreenState extends State<ReportesScreen>
     }
   }
 
+  void _ensureTenantStreams(String tenantId) {
+    if (_tenantIdForStreams == tenantId &&
+        _ventasStream != null &&
+        _productosStream != null) {
+      return;
+    }
+
+    _tenantIdForStreams = tenantId;
+    _ventasStream = _ventaRepo.watchByTenant(tenantId);
+    _productosStream = _productRepo.watchByTenant(tenantId);
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final tenantId = auth.tenantId;
     final fmtDate = DateFormat('dd/MM/yyyy');
+    _ensureTenantStreams(tenantId);
+    final ventasStream = _ventasStream;
+    final productosStream = _productosStream;
+    if (ventasStream == null || productosStream == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6FA),
@@ -85,7 +106,7 @@ class _ReportesScreenState extends State<ReportesScreen>
         children: [
           // ── Tab 0: Reporte de Ventas ───────────────────────────────────
           StreamBuilder<List<Venta>>(
-            stream: _ventaRepo.watchByTenant(tenantId),
+            stream: ventasStream,
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
@@ -276,8 +297,7 @@ class _ReportesScreenState extends State<ReportesScreen>
 
           // ── Tab 1: Reporte de Stock ────────────────────────────────────
           StreamBuilder<List<Product>>(
-            stream: _productRepo
-                .watchByTenant(context.read<AuthProvider>().tenantId),
+            stream: productosStream,
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());

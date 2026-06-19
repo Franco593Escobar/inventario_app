@@ -33,6 +33,18 @@ class _ProductsManagementScreenState extends State<ProductsManagementScreen> {
   String _selectedStatus = 'todos';
   String _selectedStock = 'todos';
   List<Product> _cachedProducts = [];
+  Stream<List<Product>>? _productsStream;
+  String _productsTenantId = '';
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final tenantId = Provider.of<AuthProvider>(context, listen: false).tenantId;
+    if (_productsStream == null || _productsTenantId != tenantId) {
+      _productsTenantId = tenantId;
+      _productsStream = _repository.watchByTenant(tenantId);
+    }
+  }
 
   @override
   void dispose() {
@@ -936,11 +948,13 @@ class _ProductsManagementScreenState extends State<ProductsManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = Provider.of<AuthProvider>(context, listen: false);
-    final tenantId = auth.tenantId;
+    final stream = _productsStream;
+    if (stream == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
     return StreamBuilder<List<Product>>(
-      stream: _repository.watchByTenant(tenantId),
+      stream: stream,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(

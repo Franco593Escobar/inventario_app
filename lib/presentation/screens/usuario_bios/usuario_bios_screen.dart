@@ -20,6 +20,13 @@ class _UsuarioBiosScreenState extends State<UsuarioBiosScreen> {
   final _userRepository = UserRepository();
   final _searchController = TextEditingController();
   List<UsuarioBios> _cachedUsuarios = [];
+  late final Stream<List<UsuarioBios>> _usuariosStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _usuariosStream = _repository.watchAll();
+  }
 
   @override
   void dispose() {
@@ -475,7 +482,7 @@ class _UsuarioBiosScreenState extends State<UsuarioBiosScreen> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<UsuarioBios>>(
-      stream: _repository.watchAll(),
+      stream: _usuariosStream,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Scaffold(

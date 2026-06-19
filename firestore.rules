@@ -1,0 +1,211 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function superadminBypass() {
+      return signedIn() &&
+        get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'superadmin';
+    }
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userPath(uid) {
+      return /databases/$(database)/documents/usuarios/$(uid);
+    }
+
+    function userDocExists() {
+      return signedIn() && exists(userPath(request.auth.uid));
+    }
+
+    function me() {
+      return get(userPath(request.auth.uid)).data;
+    }
+
+    function isActive() {
+      return userDocExists() && me().estado_activo == true;
+    }
+
+    function role() {
+      return userDocExists() ? (me().rol is string ? me().rol : '') : '';
+    }
+
+    function tenantId() {
+      return userDocExists() ? (me().tenant_id is string ? me().tenant_id : '') : '';
+    }
+
+    function isSuper() {
+      return role() == 'superadmin';
+    }
+
+    function isAdmin() {
+      return role() == 'admin';
+    }
+
+    function isStaffWriter() {
+      return role() in ['admin', 'superadmin', 'empleado', 'vendedor', 'cajero', 'bodeguero'];
+    }
+
+    function sameTenantByValue(tid) {
+      return tenantId() != '' && tid is string && tid == tenantId();
+    }
+
+    function sameTenantDoc(data) {
+      return data.tenant_id is string && sameTenantByValue(data.tenant_id);
+    }
+
+    function immutableTenant() {
+      return resource.data.tenant_id == request.resource.data.tenant_id;
+    }
+
+    function baseAccess() {
+      // Superadmin tiene acceso inmediato global sin depender de tenant_id.
+      return signedIn() && userDocExists() && (isSuper() || isActive());
+    }
+
+    // Usuarios operativos
+    match /usuarios/{uid} {
+      // Permitir leer el perfil propio de forma inmediata para bootstrap de sesión.
+      allow get: if signedIn() && userDocExists() && (
+        uid == request.auth.uid ||
+        isSuper() ||
+        superadminBypass() ||
+        (baseAccess() && sameTenantDoc(resource.data) && isAdmin())
+      );
+
+      allow list: if superadminBypass() || (baseAccess() && (isSuper() || isAdmin()));
+
+      allow create: if superadminBypass() || (baseAccess() && (
+        isSuper() ||
+        (
+          isAdmin() &&
+          request.resource.data.tenant_id is string &&
+          sameTenantByValue(request.resource.data.tenant_id) &&
+          request.resource.data.rol != 'superadmin'
+        )
+      ));
+
+      allow update: if superadminBypass() || (baseAccess() && (
+        isSuper() ||
+        (
+          sameTenantDoc(resource.data) &&
+          immutableTenant() &&
+          (
+            isAdmin() ||
+            (
+              uid == request.auth.uid &&
+              request.resource.data.rol == resource.data.rol &&
+              request.resource.data.estado_activo == resource.data.estado_activo
+            )
+          )
+        )
+      ));
+
+      allow delete: if superadminBypass() || (baseAccess() && (
+        isSuper() ||
+        (isAdmin() && sameTenantDoc(resource.data) && resource.data.rol != 'superadmin')
+      ));
+    }
+
+    // Configuracion de tenant
+    match /productos/{docId} {
+      allow read: if superadminBypass() || (baseAccess() && (isSuper() || sameTenantDoc(resource.data)));
+      allow create, update, delete: if superadminBypass() || (baseAccess() && (
+        isSuper() ||
+        (isAdmin() && sameTenantDoc(request.resource.data) &&
+         (request.method != 'update' || immutableTenant()))
+      ));
+    }
+
+    match /secciones/{docId} {
+      allow read: if superadminBypass() || (baseAccess() && (isSuper() || sameTenantDoc(resource.data)));
+      allow create, update, delete: if superadminBypass() || (baseAccess() && (
+        isSuper() ||
+        (isAdmin() && sameTenantDoc(request.resource.data) &&
+         (request.method != 'update' || immutableTenant()))
+      ));
+    }
+
+    match /proveedores/{docId} {
+      allow read: if superadminBypass() || (baseAccess() && (isSuper() || sameTenantDoc(resource.data)));
+      allow create, update, delete: if superadminBypass() || (baseAccess() && (
+        isSuper() ||
+        (isAdmin() && sameTenantDoc(request.resource.data) &&
+         (request.method != 'update' || immutableTenant()))
+      ));
+    }
+
+    match /salones/{docId} {
+      allow read: if superadminBypass() || (baseAccess() && (isSuper() || sameTenantDoc(resource.data)));
+      allow create, update, delete: if superadminBypass() || (baseAccess() && (
+        isSuper() ||
+        (isAdmin() && sameTenantDoc(request.resource.data) &&
+         (request.method != 'update' || immutableTenant()))
+      ));
+    }
+
+    // Operacion diaria
+    match /ordenes/{docId} {
+      allow read: if superadminBypass() || (baseAccess() && (isSuper() || sameTenantDoc(resource.data)));
+      allow create, update: if superadminBypass() || (baseAccess() && (
+        isSuper() ||
+        (isStaffWriter() && sameTenantDoc(request.resource.data) &&
+         (request.method != 'update' || immutableTenant()))
+      ));
+      allow delete: if superadminBypass() || (baseAccess() && (isSuper() || (isAdmin() && sameTenantDoc(resource.data))));
+    }
+
+    match /ventas/{docId} {
+      allow read: if superadminBypass() || (baseAccess() && (isSuper() || sameTenantDoc(resource.data)));
+      allow create, update: if superadminBypass() || (baseAccess() && (
+        isSuper() ||
+        (isStaffWriter() && sameTenantDoc(request.resource.data) &&
+         (request.method != 'update' || immutableTenant()))
+      ));
+      allow delete: if superadminBypass() || (baseAccess() && (isSuper() || (isAdmin() && sameTenantDoc(resource.data))));
+    }
+
+    match /movimientos_inventario/{docId} {
+      allow read: if superadminBypass() || (baseAccess() && (isSuper() || sameTenantDoc(resource.data)));
+      allow create: if superadminBypass() || (baseAccess() && (isSuper() || (isStaffWriter() && sameTenantDoc(request.resource.data))));
+      allow update, delete: if superadminBypass() || (baseAccess() && (isSuper() || (isAdmin() && sameTenantDoc(resource.data) && immutableTenant())));
+    }
+
+    match /movimientos_caja/{docId} {
+      allow read: if superadminBypass() || (baseAccess() && (isSuper() || sameTenantDoc(resource.data)));
+      allow create: if superadminBypass() || (baseAccess() && (
+        isSuper() ||
+        ((role() in ['admin', 'cajero']) && sameTenantDoc(request.resource.data))
+      ));
+      allow update, delete: if superadminBypass() || (baseAccess() && (isSuper() || (isAdmin() && sameTenantDoc(resource.data) && immutableTenant())));
+    }
+
+    match /cierres_caja/{docId} {
+      allow read: if superadminBypass() || (baseAccess() && (isSuper() || sameTenantDoc(resource.data)));
+      allow create: if superadminBypass() || (baseAccess() && (isSuper() || ((role() in ['admin', 'cajero']) && sameTenantDoc(request.resource.data))));
+      allow update, delete: if superadminBypass() || (baseAccess() && (isSuper() || (isAdmin() && sameTenantDoc(resource.data) && immutableTenant())));
+    }
+
+    // Identidad del negocio y marca
+    match /usuario_bios/{tenantDocId} {
+      allow read: if superadminBypass() || (baseAccess() && (isSuper() || sameTenantByValue(tenantDocId)));
+      allow create, update, delete: if superadminBypass() || (baseAccess() && (isSuper() || (isAdmin() && sameTenantByValue(tenantDocId))));
+    }
+
+    match /marca_bios/{docId} {
+      allow read: if superadminBypass() || (baseAccess() && (isSuper() || sameTenantDoc(resource.data)));
+      allow create, update, delete: if superadminBypass() || (baseAccess() && (isSuper() || (isAdmin() && sameTenantDoc(request.resource.data) && (request.method != 'update' || immutableTenant()))));
+    }
+
+    // Coleccion legacy (cliente_bios) mantenida por compatibilidad
+    match /cliente_bios/{docId} {
+      allow read: if superadminBypass() || (baseAccess() && isSuper());
+      allow create, update, delete: if superadminBypass() || (baseAccess() && isSuper());
+    }
+
+    // Fallback global: superadmin puede leer/escribir cualquier ruta; resto denegado.
+    match /{document=**} {
+      allow read, write: if superadminBypass();
+    }
+  }
+}

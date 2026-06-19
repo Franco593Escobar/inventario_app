@@ -19,6 +19,8 @@ class HistorialTab extends StatefulWidget {
 
 class _HistorialTabState extends State<HistorialTab> {
   final _ventaRepo = VentaRepository();
+  String? _tenantIdForStream;
+  Stream<List<Venta>>? _ventasStream;
 
   // Filtros
   String _filtro = 'hoy'; // 'hoy' | 'semana' | 'mes' | 'todos'
@@ -53,11 +55,23 @@ class _HistorialTabState extends State<HistorialTab> {
     }
   }
 
+  void _ensureTenantStream(String tenantId) {
+    if (_tenantIdForStream == tenantId && _ventasStream != null) return;
+    _tenantIdForStream = tenantId;
+    _ventasStream = _ventaRepo.watchByTenant(tenantId);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthProvider>();
+    final tenantId = context.select<AuthProvider, String>((a) => a.tenantId);
+    _ensureTenantStream(tenantId);
+    final ventasStream = _ventasStream;
+    if (ventasStream == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return StreamBuilder<List<Venta>>(
-      stream: _ventaRepo.watchByTenant(auth.tenantId),
+      stream: ventasStream,
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting &&
             snap.data == null) {

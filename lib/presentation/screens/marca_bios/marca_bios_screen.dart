@@ -27,6 +27,13 @@ class _MarcaBiosScreenState extends State<MarcaBiosScreen> {
   final _repo = MarcaBiosRepository();
   final _negocioRepo = UsuarioBiosRepository();
   final _searchController = TextEditingController();
+  late final Stream<List<MarcaBios>> _marcaStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _marcaStream = _repo.watchAll();
+  }
 
   @override
   void dispose() {
@@ -484,7 +491,7 @@ class _MarcaBiosScreenState extends State<MarcaBiosScreen> {
         onChanged: (_) => setState(() {}),
       ),
       content: StreamBuilder<List<MarcaBios>>(
-        stream: _repo.watchAll(),
+        stream: _marcaStream,
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());

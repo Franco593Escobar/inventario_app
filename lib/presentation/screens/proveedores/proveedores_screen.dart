@@ -18,6 +18,18 @@ class _ProveedoresScreenState extends State<ProveedoresScreen> {
   final ProveedorRepository _repository = ProveedorRepository();
   final TextEditingController _searchController = TextEditingController();
   List<Proveedor> _cachedProveedores = [];
+  Stream<List<Proveedor>>? _proveedoresStream;
+  String _proveedoresTenantId = '';
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final tenantId = Provider.of<AuthProvider>(context, listen: false).tenantId;
+    if (_proveedoresStream == null || _proveedoresTenantId != tenantId) {
+      _proveedoresTenantId = tenantId;
+      _proveedoresStream = _repository.watchByTenant(tenantId);
+    }
+  }
 
   @override
   void dispose() {
@@ -287,11 +299,13 @@ class _ProveedoresScreenState extends State<ProveedoresScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = Provider.of<AuthProvider>(context, listen: false);
-    final tenantId = auth.tenantId;
+    final stream = _proveedoresStream;
+    if (stream == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
     return StreamBuilder<List<Proveedor>>(
-      stream: _repository.watchByTenant(tenantId),
+      stream: stream,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(

@@ -5,13 +5,32 @@ import 'package:inventario_app/data/models/salon.dart';
 import 'package:inventario_app/data/repositories/salon_repository.dart';
 import 'package:inventario_app/presentation/providers/auth_provider.dart';
 
-class SalonesScreen extends StatelessWidget {
+class SalonesScreen extends StatefulWidget {
   const SalonesScreen({super.key});
 
   @override
+  State<SalonesScreen> createState() => _SalonesScreenState();
+}
+
+class _SalonesScreenState extends State<SalonesScreen> {
+  final SalonRepository _repo = SalonRepository();
+  String? _tenantIdForStream;
+  Stream<List<Salon>>? _salonesStream;
+
+  void _ensureTenantStream(String tenantId) {
+    if (_tenantIdForStream == tenantId && _salonesStream != null) return;
+    _tenantIdForStream = tenantId;
+    _salonesStream = _repo.watchAllByTenant(tenantId);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final auth = context.read<AuthProvider>();
-    final repo = SalonRepository();
+    final tenantId = context.select<AuthProvider, String>((a) => a.tenantId);
+    _ensureTenantStream(tenantId);
+    final salonesStream = _salonesStream;
+    if (salonesStream == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF2F5FA),
@@ -25,7 +44,7 @@ class SalonesScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: FilledButton.icon(
-              onPressed: () => _showSalonDialog(context, auth.tenantId, repo),
+              onPressed: () => _showSalonDialog(context, tenantId, _repo),
               icon: const Icon(Icons.add, size: 18),
               label: const Text('Nuevo Salón'),
               style: FilledButton.styleFrom(
@@ -37,7 +56,7 @@ class SalonesScreen extends StatelessWidget {
         ],
       ),
       body: StreamBuilder<List<Salon>>(
-        stream: repo.watchAllByTenant(auth.tenantId),
+        stream: salonesStream,
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -48,13 +67,13 @@ class SalonesScreen extends StatelessWidget {
           final salones = snap.data ?? [];
           if (salones.isEmpty) {
             return _EmptyState(
-              onAdd: () => _showSalonDialog(context, auth.tenantId, repo),
+              onAdd: () => _showSalonDialog(context, tenantId, _repo),
             );
           }
           return _SalonesListView(
             salones: salones,
-            tenantId: auth.tenantId,
-            repo: repo,
+            tenantId: tenantId,
+            repo: _repo,
           );
         },
       ),

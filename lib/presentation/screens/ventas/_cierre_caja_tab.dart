@@ -39,6 +39,9 @@ class _CierreCajaTabState extends State<CierreCajaTab> {
   final _ventaRepo = VentaRepository();
   final _fondoCtrl = TextEditingController(text: '0.00');
   final _obsCtrl = TextEditingController();
+  String? _tenantIdForStreams;
+  Stream<List<Venta>>? _ventasStream;
+  Stream<List<CierreCaja>>? _cierresStream;
 
   // Conteo de denominaciones: clave = etiqueta ej '\$100'
   final Map<String, int> _conteo =
@@ -59,11 +62,29 @@ class _CierreCajaTabState extends State<CierreCajaTab> {
   double get _efectivoContado =>
       _kDenominaciones.fold(0.0, (a, d) => a + ((_conteo[d.$1] ?? 0) * d.$2));
 
+  void _ensureTenantStreams(String tenantId) {
+    if (_tenantIdForStreams == tenantId &&
+        _ventasStream != null &&
+        _cierresStream != null) {
+      return;
+    }
+
+    _tenantIdForStreams = tenantId;
+    _ventasStream = _ventaRepo.watchByTenant(tenantId);
+    _cierresStream = _cierreRepo.watchByTenant(tenantId);
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
+    _ensureTenantStreams(auth.tenantId);
+    final ventasStream = _ventasStream;
+    if (ventasStream == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return StreamBuilder<List<Venta>>(
-      stream: _ventaRepo.watchByTenant(auth.tenantId),
+      stream: ventasStream,
       builder: (context, snapVentas) {
         final todasVentas = snapVentas.data ?? [];
         final hoy = DateTime.now();
@@ -205,7 +226,7 @@ class _CierreCajaTabState extends State<CierreCajaTab> {
               decoration: BoxDecoration(
                 border: Border(left: BorderSide(color: Colors.grey.shade200)),
               ),
-              child: _buildHistorialCierres(auth.tenantId),
+              child: _buildHistorialCierres(),
             ),
           ],
         );
@@ -415,9 +436,14 @@ class _CierreCajaTabState extends State<CierreCajaTab> {
 
   // ─── Historial cierres ─────────────────────────────────────────────────
 
-  Widget _buildHistorialCierres(String tenantId) {
+  Widget _buildHistorialCierres() {
+    final cierresStream = _cierresStream;
+    if (cierresStream == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return StreamBuilder<List<CierreCaja>>(
-      stream: _cierreRepo.watchByTenant(tenantId),
+      stream: cierresStream,
       builder: (context, snap) {
         final cierres = snap.data ?? [];
         return Column(

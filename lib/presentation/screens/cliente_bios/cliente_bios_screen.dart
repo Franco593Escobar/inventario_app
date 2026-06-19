@@ -17,6 +17,13 @@ class _ClienteBiosScreenState extends State<ClienteBiosScreen> {
   final _repository = ClienteBiosRepository();
   final _searchController = TextEditingController();
   List<ClienteBios> _cachedClientes = [];
+  late final Stream<List<ClienteBios>> _clientesStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _clientesStream = _repository.watchAll();
+  }
 
   @override
   void dispose() {
@@ -387,7 +394,7 @@ class _ClienteBiosScreenState extends State<ClienteBiosScreen> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<ClienteBios>>(
-      stream: _repository.watchAll(),
+      stream: _clientesStream,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Scaffold(

@@ -25,6 +25,9 @@ class _InventarioScreenState extends State<InventarioScreen>
   final ProductRepository _productRepo = ProductRepository();
   final MovimientoInventarioRepository _movRepo =
       MovimientoInventarioRepository();
+  String? _tenantIdForStreams;
+  Stream<List<Product>>? _productsStream;
+  Stream<List<MovimientoInventario>>? _movimientosStream;
 
   String _busqueda = '';
   String _tipoMovimiento = 'entrada';
@@ -124,11 +127,28 @@ class _InventarioScreenState extends State<InventarioScreen>
     );
   }
 
+  void _ensureTenantStreams(String tenantId) {
+    if (_tenantIdForStreams == tenantId &&
+        _productsStream != null &&
+        _movimientosStream != null) {
+      return;
+    }
+
+    _tenantIdForStreams = tenantId;
+    _productsStream = _productRepo.watchByTenant(tenantId);
+    _movimientosStream = _movRepo.watchByTenant(tenantId);
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final tenantId = auth.tenantId;
     final operador = auth.loginUsername;
+    _ensureTenantStreams(tenantId);
+    final productsStream = _productsStream;
+    if (productsStream == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6FA),
@@ -150,7 +170,7 @@ class _InventarioScreenState extends State<InventarioScreen>
         ),
       ),
       body: StreamBuilder<List<Product>>(
-        stream: _productRepo.watchByTenant(tenantId),
+        stream: productsStream,
         builder: (context, snap) {
           final products = snap.data ?? [];
           return TabBarView(
@@ -159,7 +179,7 @@ class _InventarioScreenState extends State<InventarioScreen>
             children: [
               _buildStock(products),
               _buildMovimiento(products, tenantId, operador),
-              _buildHistorial(tenantId),
+              _buildHistorial(),
             ],
           );
         },
@@ -394,11 +414,15 @@ class _InventarioScreenState extends State<InventarioScreen>
 
   // ── Tab 2: Historial ──────────────────────────────────────────────────────
 
-  Widget _buildHistorial(String tenantId) {
+  Widget _buildHistorial() {
     final fmt = DateFormat('dd/MM/yyyy HH:mm');
+    final movimientosStream = _movimientosStream;
+    if (movimientosStream == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
     return StreamBuilder<List<MovimientoInventario>>(
-      stream: _movRepo.watchByTenant(tenantId),
+      stream: movimientosStream,
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());

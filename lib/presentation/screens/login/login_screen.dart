@@ -186,17 +186,32 @@ class _LoginScreenState extends State<LoginScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: const Icon(
-              Icons.inventory_2_outlined,
-              size: 44,
-              color: Colors.white,
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: const Icon(
+                  Icons.inventory_2_outlined,
+                  size: 44,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 16),
+              const Text(
+                'Liris',
+                style: TextStyle(
+                  fontSize: 38,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 24),
           const Text(
@@ -305,8 +320,8 @@ class _LoginScreenState extends State<LoginScreen> {
           TextField(
             controller: _usuarioController,
             decoration: const InputDecoration(
-              labelText: 'Usuario',
-              hintText: 'Ingresa tu usuario',
+              labelText: 'Correo o usuario',
+              hintText: 'Ej: usuario@dominio.com o nombre_usuario',
               border: OutlineInputBorder(),
             ),
           ),

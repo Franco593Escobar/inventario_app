@@ -1,0 +1,8 @@
+{
+  "firestore": [
+    {
+      "database": "inventario-bdd",
+      "rules": "firestore.rules"
+    }
+  ]
+}

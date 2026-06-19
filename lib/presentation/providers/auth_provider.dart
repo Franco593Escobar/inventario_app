@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:inventario_app/data/models/marca_bios.dart';
 import 'package:inventario_app/data/models/usuario_bios.dart';
 import 'package:inventario_app/data/repositories/usuario_bios_repository.dart';
@@ -19,10 +20,12 @@ class AuthProvider extends ChangeNotifier {
   String _sucursalNombre = '';
   String _tipoComercio = 'comercio';
   String _errorMessage = '';
+  String _sessionPassword = '';
   // ── Colores de la marca del tenant ──
   String _marcaColorPrimario = '';
   String? _marcaLogoBase64;
   List<String> _marcaCromatica = [];
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instanceFor(
     app: Firebase.app(),
@@ -31,6 +34,7 @@ class AuthProvider extends ChangeNotifier {
 
   AuthStatus get status => _status;
   String get nombreUsuario => _nombreUsuario;
+
   /// Nombre de usuario de login (ej. "593bk-gramon") — usado para auditoría y lookup de tenant.
   String get loginUsername => _loginUsername;
   String get rol => _rol;
@@ -43,6 +47,11 @@ class AuthProvider extends ChangeNotifier {
   String get marcaColorPrimario => _marcaColorPrimario;
   String? get marcaLogoBase64 => _marcaLogoBase64;
   List<String> get marcaCromatica => _marcaCromatica;
+
+  bool validateCurrentPassword(String password) {
+    final input = password.trim();
+    return _sessionPassword.isNotEmpty && _sessionPassword == input;
+  }
 
   /// Devuelve el Color primario de la marca (o AppColors.primary si no hay).
   Color get marcaPrimaryColor {
@@ -64,63 +73,114 @@ class AuthProvider extends ChangeNotifier {
     return '';
   }
 
-  Future<QueryDocumentSnapshot<Map<String, dynamic>>?> _findUserDocument(
-    String usuario,
-  ) async {
-    final normalizedUsuario = _normalizeValue(usuario);
+  List<String> _candidateEmails(String usuario) {
+    final trimmed = usuario.trim().toLowerCase();
+    if (trimmed.isEmpty) return const [];
+    if (trimmed.contains('@')) return [trimmed];
+    return ['${trimmed}@liris.local', '${trimmed}@inventario.app'];
+  }
 
-    final exactMatch = await _firestore
-        .collection('usuarios')
-        .where('nombre_usuario', isEqualTo: usuario.trim())
-        .limit(1)
-        .get();
-
-    if (exactMatch.docs.isNotEmpty) return exactMatch.docs.first;
-
-    final allUsers = await _firestore.collection('usuarios').get();
-    for (final doc in allUsers.docs) {
-      final storedUser = (doc.data()['nombre_usuario'] ?? '').toString();
-      if (_normalizeValue(storedUser) == normalizedUsuario) return doc;
+  String _friendlyAuthError(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'invalid-email':
+        return 'Correo inválido.';
+      case 'user-not-found':
+      case 'invalid-credential':
+        return 'Usuario/correo no encontrado.';
+      case 'wrong-password':
+        return 'Contraseña incorrecta.';
+      case 'too-many-requests':
+        return 'Demasiados intentos. Intenta de nuevo en unos minutos.';
+      case 'network-request-failed':
+        return 'Error de red al autenticar.';
+      default:
+        return e.message ?? e.code;
     }
-    return null;
   }
 
   Future<bool> login(String usuario, String password) async {
     _errorMessage = '';
     try {
-      final userDoc = await _findUserDocument(usuario);
-      if (userDoc == null) {
+      final pass = password.trim();
+      if (pass.isEmpty) {
         _status = AuthStatus.unauthenticated;
-        _errorMessage = 'Usuario "$usuario" no encontrado';
+        _errorMessage = 'Ingresa una contraseña válida.';
         notifyListeners();
         return false;
       }
 
-      final userData = userDoc.data();
+      final candidates = _candidateEmails(usuario);
+      if (candidates.isEmpty) {
+        _status = AuthStatus.unauthenticated;
+        _errorMessage = 'Ingresa un usuario o correo válido.';
+        notifyListeners();
+        return false;
+      }
+
+      UserCredential? credential;
+      String? lastAuthError;
+
+      for (final email in candidates) {
+        try {
+          credential = await _auth.signInWithEmailAndPassword(
+            email: email,
+            password: pass,
+          );
+          break;
+        } on FirebaseAuthException catch (e) {
+          lastAuthError = _friendlyAuthError(e);
+        }
+      }
+
+      if (credential == null || credential.user == null) {
+        _status = AuthStatus.unauthenticated;
+        _errorMessage = lastAuthError ??
+            'No se pudo autenticar. Verifica usuario/correo y contraseña.';
+        notifyListeners();
+        return false;
+      }
+
+      final authUser = credential.user!;
+      final userSnap =
+          await _firestore.collection('usuarios').doc(authUser.uid).get();
+
+      if (!userSnap.exists) {
+        await _auth.signOut();
+        _status = AuthStatus.unauthenticated;
+        _errorMessage =
+            'No existe perfil usuarios/{uid} para este usuario autenticado. Solicita migración de perfil.';
+        notifyListeners();
+        return false;
+      }
+
+      final userData = userSnap.data()!;
       final activo = userData['estado_activo'] ?? false;
       if (!activo) {
+        await _auth.signOut();
         _status = AuthStatus.unauthenticated;
         _errorMessage = 'El usuario "$usuario" está inactivo';
         notifyListeners();
         return false;
       }
 
-      if (userData['password'] != password.trim()) {
-        _status = AuthStatus.unauthenticated;
-        _errorMessage = 'Contraseña incorrecta para el usuario "$usuario"';
-        notifyListeners();
-        return false;
-      }
-
       // ── Diagnóstico: mostrar todos los campos del doc ──
-      debugPrint('[Liris] LOGIN usuario="${usuario}" | campos: ${userData.keys.join(', ')}');
-      debugPrint('[Liris] tenant_id=${userData['tenant_id']} | tenantId=${userData['tenantId']} | negocio_id=${userData['negocio_id']}');
+      debugPrint(
+          '[Liris] LOGIN uid=${authUser.uid} email=${authUser.email ?? 'N/A'} | campos: ${userData.keys.join(', ')}');
+      debugPrint(
+          '[Liris] tenant_id=${userData['tenant_id']} | tenantId=${userData['tenantId']} | negocio_id=${userData['negocio_id']}');
 
-      _uid = userDoc.id;
-      _loginUsername = (userData['nombre_usuario'] ?? usuario).toString().trim();
+      _uid = authUser.uid;
+      _loginUsername = _readFirstNonEmpty(
+        userData,
+        const ['login_username', 'nombre_usuario'],
+      );
+      if (_loginUsername.isEmpty) {
+        _loginUsername = authUser.email?.split('@').first ?? usuario.trim();
+      }
       _nombreUsuario = _readFirstNonEmpty(
           userData, const ['nombres', 'nombre_usuario', 'apellidos']);
       _rol = userData['rol'] ?? 'vendedor';
+      _sessionPassword = pass;
 
       // Buscar tenant_id con varias posibles claves (snake_case y camelCase)
       _tenantId = _readFirstNonEmpty(userData, const [
@@ -149,7 +209,8 @@ class AuthProvider extends ChangeNotifier {
       if (_tenantId.isNotEmpty) {
         try {
           // Intento 1: buscar por document ID (= cédula del negocio)
-          UsuarioBios? negocio = await UsuarioBiosRepository().getById(_tenantId);
+          UsuarioBios? negocio =
+              await UsuarioBiosRepository().getById(_tenantId);
 
           // Intento 2: buscar por campo 'cedula'
           negocio ??= await UsuarioBiosRepository().getByCedula(_tenantId);
@@ -158,20 +219,24 @@ class AuthProvider extends ChangeNotifier {
             _tenantId = negocio.id; // asegurar que usamos el doc ID real
             _tenantNombre = negocio.nombreNegocio;
             _tipoComercio = negocio.tipoComercio;
-            if (_sucursalNombre.isEmpty) _sucursalNombre = negocio.nombreNegocio;
+            if (_sucursalNombre.isEmpty)
+              _sucursalNombre = negocio.nombreNegocio;
           }
-          debugPrint('[Liris] usuario_bios → tenantId=$_tenantId | negocio=${negocio?.nombreNegocio ?? "NO ENCONTRADO"}');
+          debugPrint(
+              '[Liris] usuario_bios → tenantId=$_tenantId | negocio=${negocio?.nombreNegocio ?? "NO ENCONTRADO"}');
         } catch (e) {
           debugPrint('[Liris] ERROR cargando usuario_bios: $e');
         }
       } else {
-        debugPrint('[Liris] ADVERTENCIA: tenant_id vacío para usuario=$usuario. Verifica el doc en colección "usuarios".');
+        debugPrint(
+            '[Liris] ADVERTENCIA: tenant_id vacío para usuario=$usuario. Verifica el doc en colección "usuarios".');
       }
 
       // ── Fallback: si aún sin tenantNombre, buscar en usuario_bios por nombre ──
       if (_tenantNombre.isNotEmpty && _tenantId.isEmpty) {
         try {
-          final negocio = await UsuarioBiosRepository().getByNombreNegocio(_tenantNombre);
+          final negocio =
+              await UsuarioBiosRepository().getByNombreNegocio(_tenantNombre);
           if (negocio != null) {
             _tenantId = negocio.id;
             _tenantNombre = negocio.nombreNegocio;
@@ -186,15 +251,19 @@ class AuthProvider extends ChangeNotifier {
         final creadoPor = userData['creado_por']?.toString().trim() ?? '';
         if (creadoPor.isNotEmpty) {
           try {
-            final negocio = await UsuarioBiosRepository().getByNombreUsuario(creadoPor);
+            final negocio =
+                await UsuarioBiosRepository().getByNombreUsuario(creadoPor);
             if (negocio != null) {
               _tenantId = negocio.id;
               _tenantNombre = negocio.nombreNegocio;
               _tipoComercio = negocio.tipoComercio;
-              if (_sucursalNombre.isEmpty) _sucursalNombre = negocio.nombreNegocio;
-              debugPrint('[Liris] ✅ fallback creado_por="$creadoPor" → tenantId=$_tenantId | negocio=$_tenantNombre');
+              if (_sucursalNombre.isEmpty)
+                _sucursalNombre = negocio.nombreNegocio;
+              debugPrint(
+                  '[Liris] ✅ fallback creado_por="$creadoPor" → tenantId=$_tenantId | negocio=$_tenantNombre');
             } else {
-              debugPrint('[Liris] creado_por="$creadoPor" no encontrado en usuario_bios');
+              debugPrint(
+                  '[Liris] creado_por="$creadoPor" no encontrado en usuario_bios');
             }
           } catch (_) {}
         }
@@ -203,15 +272,19 @@ class AuthProvider extends ChangeNotifier {
       // ── Fallback final: buscar usuario_bios por nombre_usuario del login ──
       if (_tenantId.isEmpty) {
         try {
-          final negocio = await UsuarioBiosRepository().getByNombreUsuario(usuario.trim());
+          final negocio =
+              await UsuarioBiosRepository().getByNombreUsuario(usuario.trim());
           if (negocio != null) {
             _tenantId = negocio.id;
             _tenantNombre = negocio.nombreNegocio;
             _tipoComercio = negocio.tipoComercio;
-            if (_sucursalNombre.isEmpty) _sucursalNombre = negocio.nombreNegocio;
-            debugPrint('[Liris] ✅ fallback por nombre_usuario → tenantId=$_tenantId | negocio=$_tenantNombre');
+            if (_sucursalNombre.isEmpty)
+              _sucursalNombre = negocio.nombreNegocio;
+            debugPrint(
+                '[Liris] ✅ fallback por nombre_usuario → tenantId=$_tenantId | negocio=$_tenantNombre');
           } else {
-            debugPrint('[Liris] ❌ Sin vínculo al negocio. Agrega tenant_id="${negocio?.id ?? "ID_NEGOCIO"}" al doc de usuario=$usuario en Firestore → colección "usuarios"');
+            debugPrint(
+                '[Liris] ❌ Sin vínculo al negocio. Agrega tenant_id="${negocio?.id ?? "ID_NEGOCIO"}" al doc de usuario=$usuario en Firestore → colección "usuarios"');
           }
         } catch (_) {}
       }
@@ -219,10 +292,13 @@ class AuthProvider extends ChangeNotifier {
       // ── Cargar marca del tenant (por ID y fallback por nombre) ──
       if (_tenantId.isNotEmpty) {
         try {
-          MarcaBios? marca = await MarcaBiosRepository().getByNegocioId(_tenantId);
+          MarcaBios? marca =
+              await MarcaBiosRepository().getByNegocioId(_tenantId);
           if (marca == null && _tenantNombre.isNotEmpty) {
-            debugPrint('[Liris] marca no encontrada por ID, buscando por nombre: $_tenantNombre');
-            marca = await MarcaBiosRepository().getByNombreNegocio(_tenantNombre);
+            debugPrint(
+                '[Liris] marca no encontrada por ID, buscando por nombre: $_tenantNombre');
+            marca =
+                await MarcaBiosRepository().getByNombreNegocio(_tenantNombre);
           }
           if (marca != null) {
             _marcaColorPrimario = marca.colorPrimario;
@@ -230,7 +306,8 @@ class AuthProvider extends ChangeNotifier {
             _marcaCromatica = marca.cromatica;
             debugPrint('[Liris] ✅ marca cargada: color=${marca.colorPrimario}');
           } else {
-            debugPrint('[Liris] ❌ marca NO encontrada para tenantId=$_tenantId / nombre=$_tenantNombre');
+            debugPrint(
+                '[Liris] ❌ marca NO encontrada para tenantId=$_tenantId / nombre=$_tenantNombre');
           }
         } catch (e) {
           debugPrint('[Liris] ERROR cargando marca_bios: $e');
@@ -260,6 +337,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   void logout() {
+    _auth.signOut();
     _status = AuthStatus.unauthenticated;
     _nombreUsuario = '';
     _loginUsername = '';
@@ -269,6 +347,7 @@ class AuthProvider extends ChangeNotifier {
     _tenantNombre = '';
     _sucursalNombre = '';
     _tipoComercio = 'comercio';
+    _sessionPassword = '';
     _marcaColorPrimario = '';
     _marcaLogoBase64 = null;
     _marcaCromatica = [];

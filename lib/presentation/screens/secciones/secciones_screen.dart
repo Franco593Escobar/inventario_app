@@ -21,6 +21,18 @@ class _SeccionesScreenState extends State<SeccionesScreen> {
   final SeccionRepository _repository = SeccionRepository();
   final TextEditingController _searchController = TextEditingController();
   List<Seccion> _cachedSecciones = [];
+  Stream<List<Seccion>>? _seccionesStream;
+  String _seccionesTenantId = '';
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final tenantId = Provider.of<AuthProvider>(context, listen: false).tenantId;
+    if (_seccionesStream == null || _seccionesTenantId != tenantId) {
+      _seccionesTenantId = tenantId;
+      _seccionesStream = _repository.watchByTenant(tenantId);
+    }
+  }
 
   @override
   void dispose() {
@@ -312,11 +324,13 @@ class _SeccionesScreenState extends State<SeccionesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = Provider.of<AuthProvider>(context, listen: false);
-    final tenantId = auth.tenantId;
+    final stream = _seccionesStream;
+    if (stream == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
     return StreamBuilder<List<Seccion>>(
-      stream: _repository.watchByTenant(tenantId),
+      stream: stream,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(

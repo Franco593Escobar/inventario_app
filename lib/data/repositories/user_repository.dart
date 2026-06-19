@@ -34,15 +34,19 @@ class UserRepository {
   }
 
   Future<void> createUser(AppUser user) async {
-    await _usuariosCollection.add(
-      user
-          .copyWith(fechaCreacion: user.fechaCreacion ?? DateTime.now())
-          .toMap(),
-    );
+    final data = user
+        .copyWith(fechaCreacion: user.fechaCreacion ?? DateTime.now())
+        .toMap();
+    data['login_username'] = user.nombreUsuario.trim();
+    data['nombre_usuario_lc'] = user.nombreUsuario.trim().toLowerCase();
+    await _usuariosCollection.add(data);
   }
 
   Future<void> updateUser(AppUser user) async {
-    await _usuariosCollection.doc(user.id).update(user.toMap());
+    final data = user.toMap();
+    data['login_username'] = user.nombreUsuario.trim();
+    data['nombre_usuario_lc'] = user.nombreUsuario.trim().toLowerCase();
+    await _usuariosCollection.doc(user.id).update(data);
   }
 
   Future<void> deleteUser(String userId) async {

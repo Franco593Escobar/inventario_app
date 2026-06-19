@@ -19,6 +19,23 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _selectedRole = 'todos';
   List<AppUser> _cachedUsers = [];
+  Stream<List<AppUser>>? _usersStream;
+  String _usersStreamKey = '';
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final isSuper = auth.rol.toLowerCase() == 'superadmin';
+    final key = '${auth.rol.toLowerCase()}::${auth.tenantId}';
+
+    if (_usersStream == null || _usersStreamKey != key) {
+      _usersStreamKey = key;
+      _usersStream = isSuper
+          ? _repository.watchUsers()
+          : _repository.watchByTenant(auth.tenantId);
+    }
+  }
 
   String _formatDate(DateTime? value) {
     if (value == null) return 'Sin fecha';
@@ -387,7 +404,10 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                               ),
                             ),
                             child: Text(
-                              user?.creadoPor ??  Provider.of<AuthProvider>(context, listen: false).loginUsername,
+                              user?.creadoPor ??
+                                  Provider.of<AuthProvider>(context,
+                                          listen: false)
+                                      .loginUsername,
                               style: TextStyle(
                                 color: Colors.blueGrey.shade600,
                               ),
@@ -502,8 +522,11 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                       // Auditoría: preservar creadoPor en edición;
                       // para usuarios nuevos se usa el nombre_usuario de login.
                       creadoPor: user?.creadoPor ??
-                          Provider.of<AuthProvider>(context, listen: false).loginUsername,
-                      modificadoPor: Provider.of<AuthProvider>(context, listen: false).loginUsername,
+                          Provider.of<AuthProvider>(context, listen: false)
+                              .loginUsername,
+                      modificadoPor:
+                          Provider.of<AuthProvider>(context, listen: false)
+                              .loginUsername,
                     );
 
                     try {
@@ -608,14 +631,13 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final stream = _usersStream;
+    if (stream == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return StreamBuilder<List<AppUser>>(
-      stream: () {
-        final auth = Provider.of<AuthProvider>(context, listen: false);
-        final isSuper = auth.rol.toLowerCase() == 'superadmin';
-        return isSuper
-            ? _repository.watchUsers()
-            : _repository.watchByTenant(auth.tenantId);
-      }(),
+      stream: stream,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(

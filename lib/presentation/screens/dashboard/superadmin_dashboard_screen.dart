@@ -234,21 +234,39 @@ class SuperadminDashboardScreen extends StatelessWidget {
                     const SizedBox(width: 10),
                   ],
                   if (isSuperadmin)
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          'Centro de Operación Multinegocio',
-                          style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.white70,
-                              fontWeight: FontWeight.w400),
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.inventory_2_outlined,
+                            size: 18,
+                            color: Colors.white,
+                          ),
                         ),
-                        Text(
-                          'Liris',
-                          style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
+                        const SizedBox(width: 8),
+                        const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Liris',
+                              style: TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              'Centro de Operación Multinegocio',
+                              style: TextStyle(
+                                  fontSize: 9,
+                                  color: Colors.white70,
+                                  fontWeight: FontWeight.w400),
+                            ),
+                          ],
                         ),
                       ],
                     )

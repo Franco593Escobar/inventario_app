@@ -33,6 +33,10 @@ class _FacturacionTabState extends State<FacturacionTab> {
   final _productRepo = ProductRepository();
   final _salonRepo = SalonRepository();
   final _busquedaCtrl = TextEditingController();
+  String? _tenantIdForStreams;
+  Stream<List<Salon>>? _salonesStream;
+  Stream<List<Orden>>? _ordenesAbiertasStream;
+  Stream<List<Product>>? _productosStream;
 
   // ── Vista actual ──────────────────────────────────────────────────────────
   _FacturacionView _view = _FacturacionView.entrada;
@@ -122,13 +126,30 @@ class _FacturacionTabState extends State<FacturacionTab> {
   double get _totalLocal =>
       _subtotalLocal + (_ordenSeleccionada?.costoDelivery ?? 0.0);
 
+  void _ensureTenantStreams(String tenantId) {
+    if (_tenantIdForStreams == tenantId &&
+        _salonesStream != null &&
+        _ordenesAbiertasStream != null &&
+        _productosStream != null) {
+      return;
+    }
+
+    _tenantIdForStreams = tenantId;
+    _salonesStream = _salonRepo.watchByTenant(tenantId);
+    _ordenesAbiertasStream = _ordenRepo.watchAbiertas(tenantId);
+    _productosStream = _productRepo.watchByTenant(tenantId);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    _ensureTenantStreams(auth.tenantId);
+
     return switch (_view) {
       _FacturacionView.entrada => _buildEntrada(),
-      _FacturacionView.nuevaVenta => _buildNuevaVenta(),
-      _FacturacionView.ventasPendientes => _buildVentasPendientes(),
-      _FacturacionView.pos => _buildPOSView(),
+      _FacturacionView.nuevaVenta => _buildNuevaVenta(auth),
+      _FacturacionView.ventasPendientes => _buildVentasPendientes(auth),
+      _FacturacionView.pos => _buildPOSView(auth),
     };
   }
 
@@ -200,8 +221,7 @@ class _FacturacionTabState extends State<FacturacionTab> {
 
   // ─── Vista: Nueva Venta ───────────────────────────────────────────────────
 
-  Widget _buildNuevaVenta() {
-    final auth = context.read<AuthProvider>();
+  Widget _buildNuevaVenta(AuthProvider auth) {
     if (!_esRestaurante) {
       return _buildNuevaVentaRapida(auth);
     }
@@ -287,8 +307,14 @@ class _FacturacionTabState extends State<FacturacionTab> {
   }
 
   Widget _buildSalonesMesas(AuthProvider auth) {
+    final salonesStream = _salonesStream;
+    final ordenesAbiertasStream = _ordenesAbiertasStream;
+    if (salonesStream == null || ordenesAbiertasStream == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return StreamBuilder<List<Salon>>(
-      stream: _salonRepo.watchByTenant(auth.tenantId),
+      stream: salonesStream,
       builder: (context, snapSalones) {
         final salones = snapSalones.data ?? [];
         return Scaffold(
@@ -337,7 +363,7 @@ class _FacturacionTabState extends State<FacturacionTab> {
                   ),
                 )
               : StreamBuilder<List<Orden>>(
-                  stream: _ordenRepo.watchAbiertas(auth.tenantId),
+                  stream: ordenesAbiertasStream,
                   builder: (context, snapOrdenes) {
                     final ordenesAbiertas = snapOrdenes.data ?? [];
                     final mesasOcupadas = <String>{};
@@ -404,8 +430,12 @@ class _FacturacionTabState extends State<FacturacionTab> {
 
   // ─── Vista: Ventas Pendientes ─────────────────────────────────────────────
 
-  Widget _buildVentasPendientes() {
-    final auth = context.read<AuthProvider>();
+  Widget _buildVentasPendientes(AuthProvider auth) {
+    final ordenesAbiertasStream = _ordenesAbiertasStream;
+    if (ordenesAbiertasStream == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF2F5FA),
       appBar: AppBar(
@@ -426,7 +456,7 @@ class _FacturacionTabState extends State<FacturacionTab> {
         ],
       ),
       body: StreamBuilder<List<Orden>>(
-        stream: _ordenRepo.watchAbiertas(auth.tenantId),
+        stream: ordenesAbiertasStream,
         builder: (context, snap) {
           final ordenes = snap.data ?? [];
           if (ordenes.isEmpty) {
@@ -488,8 +518,7 @@ class _FacturacionTabState extends State<FacturacionTab> {
 
   // ─── Vista: POS completo ──────────────────────────────────────────────────
 
-  Widget _buildPOSView() {
-    final auth = context.read<AuthProvider>();
+  Widget _buildPOSView(AuthProvider auth) {
     return Column(
       children: [
         _buildPOSTopBar(auth),
@@ -667,7 +696,7 @@ class _FacturacionTabState extends State<FacturacionTab> {
               subtitle: const Text('Fusionar con otra orden abierta'),
               onTap: () {
                 Navigator.pop(context);
-                _mostrarUnirPedido(auth.tenantId);
+                _mostrarUnirPedido();
               },
             ),
             ListTile(
@@ -738,15 +767,18 @@ class _FacturacionTabState extends State<FacturacionTab> {
     }
   }
 
-  Future<void> _mostrarUnirPedido(String tenantId) async {
+  Future<void> _mostrarUnirPedido() async {
     if (_ordenSeleccionada == null) return;
+    final ordenesAbiertasStream = _ordenesAbiertasStream;
+    if (ordenesAbiertasStream == null) return;
+
     await _guardarCarrito();
     await showDialog(
       context: context,
       builder: (_) => _UnirPedidoDialog(
         ordenActual: _ordenSeleccionada!,
+        ordenesAbiertasStream: ordenesAbiertasStream,
         ordenRepo: _ordenRepo,
-        tenantId: tenantId,
         onUnida: (ord) {
           setState(() {
             _ordenSeleccionada = ord;
@@ -1076,8 +1108,13 @@ class _FacturacionTabState extends State<FacturacionTab> {
   // ─── Catálogo de productos ───────────────────────────────────────────────
 
   Widget _buildCatalogo(String tenantId, Orden orden) {
+    final productosStream = _productosStream;
+    if (productosStream == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return StreamBuilder<List<Product>>(
-      stream: _productRepo.watchByTenant(tenantId),
+      stream: productosStream,
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting &&
             snap.data == null) {
@@ -2404,13 +2441,13 @@ class _POSTopBtn extends StatelessWidget {
 class _UnirPedidoDialog extends StatelessWidget {
   const _UnirPedidoDialog({
     required this.ordenActual,
+    required this.ordenesAbiertasStream,
     required this.ordenRepo,
-    required this.tenantId,
     required this.onUnida,
   });
   final Orden ordenActual;
+  final Stream<List<Orden>> ordenesAbiertasStream;
   final OrdenRepository ordenRepo;
-  final String tenantId;
   final ValueChanged<Orden> onUnida;
 
   @override
@@ -2420,7 +2457,7 @@ class _UnirPedidoDialog extends StatelessWidget {
       content: SizedBox(
         width: 380,
         child: StreamBuilder<List<Orden>>(
-          stream: ordenRepo.watchAbiertas(tenantId),
+          stream: ordenesAbiertasStream,
           builder: (ctx, snap) {
             final otras =
                 (snap.data ?? []).where((o) => o.id != ordenActual.id).toList();
@@ -2688,19 +2725,21 @@ class _MovimientoCajaDialogState extends State<_MovimientoCajaDialog> {
       _error = null;
     });
     try {
-      final db = FirebaseFirestore.instanceFor(
-          app: Firebase.app(), databaseURL: 'inventario-bdd');
-      final snap = await db
-          .collection('usuarios')
-          .where('tenant_id', isEqualTo: widget.tenantId)
-          .where('login_username', isEqualTo: widget.loginUsername)
-          .where('password', isEqualTo: _passCtrl.text.trim())
-          .limit(1)
-          .get();
-      if (snap.docs.isEmpty) {
+      final auth = context.read<AuthProvider>();
+      final rol = auth.rol.toLowerCase();
+      if (rol != 'admin' && rol != 'superadmin') {
+        setState(
+            () => _error = 'Sin permisos para registrar movimientos de caja');
+        return;
+      }
+
+      if (!auth.validateCurrentPassword(_passCtrl.text)) {
         setState(() => _error = 'Contraseña incorrecta o sin permisos');
         return;
       }
+
+      final db = FirebaseFirestore.instanceFor(
+          app: Firebase.app(), databaseURL: 'inventario-bdd');
       await db.collection('movimientos_caja').add({
         'tenant_id': widget.tenantId,
         'tipo': widget.tipo,
