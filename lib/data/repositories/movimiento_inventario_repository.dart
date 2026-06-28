@@ -15,6 +15,13 @@ class MovimientoInventarioRepository {
       _firestore.collection('movimientos_inventario');
 
   Stream<List<MovimientoInventario>> watchByTenant(String tenantId) {
+    // Superadmin (tenant_id = "global") ve todos los movimientos sin restricción
+    if (tenantId == 'global') {
+      return _col.orderBy('fecha', descending: true).limit(200).snapshots().map(
+          (s) => s.docs
+              .map((d) => MovimientoInventario.fromMap(d.id, d.data()))
+              .toList());
+    }
     return _col
         .where('tenant_id', isEqualTo: tenantId)
         .orderBy('fecha', descending: true)

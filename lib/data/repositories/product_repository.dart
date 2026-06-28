@@ -15,6 +15,11 @@ class ProductRepository {
       _firestore.collection('productos');
 
   Stream<List<Product>> watchByTenant(String tenantId) {
+    // Superadmin (tenant_id = "global") ve todos los productos sin restricción
+    if (tenantId == 'global') {
+      return _productosCollection.orderBy('nombre').snapshots().map(
+          (s) => s.docs.map((d) => Product.fromMap(d.id, d.data())).toList());
+    }
     return _productosCollection
         .where('tenant_id', isEqualTo: tenantId)
         .orderBy('nombre')

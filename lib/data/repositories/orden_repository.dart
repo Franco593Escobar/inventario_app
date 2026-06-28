@@ -16,7 +16,16 @@ class OrdenRepository {
       _firestore.collection('ordenes');
 
   /// Stream de órdenes abiertas del tenant, ordenadas por fecha ASC.
+  /// Superadmin (tenant_id = "global") ve todas las órdenes sin restricción.
   Stream<List<Orden>> watchAbiertas(String tenantId) {
+    if (tenantId == 'global') {
+      return _col
+          .where('estado', isEqualTo: 'abierta')
+          .orderBy('fecha_creacion', descending: false)
+          .snapshots()
+          .map(
+              (s) => s.docs.map((d) => Orden.fromMap(d.id, d.data())).toList());
+    }
     return _col
         .where('tenant_id', isEqualTo: tenantId)
         .where('estado', isEqualTo: 'abierta')
