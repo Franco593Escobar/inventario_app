@@ -102,6 +102,11 @@ class AuthProvider extends ChangeNotifier {
     _errorMessage = '';
     try {
       final pass = password.trim();
+      final trimmedUsuario = usuario.trim().toLowerCase();
+
+      debugPrint(
+          '[Liris] LOGIN INTENTO: usuario="$trimmedUsuario" password="$pass"');
+
       if (pass.isEmpty) {
         _status = AuthStatus.unauthenticated;
         _errorMessage = 'Ingresa una contraseña válida.';
@@ -109,26 +114,49 @@ class AuthProvider extends ChangeNotifier {
         return false;
       }
 
-      final candidates = _candidateEmails(usuario);
-      if (candidates.isEmpty) {
+      if (trimmedUsuario.isEmpty) {
         _status = AuthStatus.unauthenticated;
         _errorMessage = 'Ingresa un usuario o correo válido.';
         notifyListeners();
         return false;
       }
 
+      // Intentar autenticación directa con Firebase Auth
       UserCredential? credential;
       String? lastAuthError;
 
-      for (final email in candidates) {
+      // Si el usuario ingresó un email completo, usarlo directamente
+      if (trimmedUsuario.contains('@')) {
+        debugPrint(
+            '[Liris] Intentando auth con email directo: $trimmedUsuario');
         try {
           credential = await _auth.signInWithEmailAndPassword(
-            email: email,
+            email: trimmedUsuario,
             password: pass,
           );
-          break;
+          debugPrint('[Liris] ✅ Auth exitosa con email directo');
         } on FirebaseAuthException catch (e) {
           lastAuthError = _friendlyAuthError(e);
+          debugPrint(
+              '[Liris] ❌ Auth fallida con email directo: ${e.code} - ${e.message}');
+        }
+      } else {
+        // Si no tiene @, intentar con los dominios conocidos
+        final candidates = _candidateEmails(usuario);
+        debugPrint('[Liris] Intentando auth con candidatos: $candidates');
+
+        for (final email in candidates) {
+          try {
+            credential = await _auth.signInWithEmailAndPassword(
+              email: email,
+              password: pass,
+            );
+            debugPrint('[Liris] ✅ Auth exitosa con: $email');
+            break;
+          } on FirebaseAuthException catch (e) {
+            lastAuthError = _friendlyAuthError(e);
+            debugPrint('[Liris] ❌ Auth fallida con $email: ${e.code}');
+          }
         }
       }
 
@@ -136,6 +164,7 @@ class AuthProvider extends ChangeNotifier {
         _status = AuthStatus.unauthenticated;
         _errorMessage = lastAuthError ??
             'No se pudo autenticar. Verifica usuario/correo y contraseña.';
+        debugPrint('[Liris] ❌ LOGIN FALLIDO: $_errorMessage');
         notifyListeners();
         return false;
       }
