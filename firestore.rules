@@ -199,7 +199,9 @@ service cloud.firestore {
 
     // Identidad del negocio y marca
     match /usuario_bios/{tenantDocId} {
-      allow read: if superadminBypass() || (baseAccess() && (isSuper() || sameTenantByValue(tenantDocId)));
+      // Permitir lectura para usuarios autenticados (incluyendo auth local)
+      allow read: if superadminBypass() || (baseAccess() && (isSuper() || sameTenantByValue(tenantDocId))) ||
+                   (request.auth == null && userDocExists());
       allow create, update, delete: if superadminBypass() || (baseAccess() && (isSuper() || (isAdmin() && sameTenantByValue(tenantDocId))));
     }
 
