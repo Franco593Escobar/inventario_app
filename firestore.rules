@@ -60,7 +60,9 @@ service cloud.firestore {
 
     function baseAccess() {
       // Superadmin tiene acceso inmediato global sin depender de tenant_id.
-      return signedIn() && userDocExists() && (isSuper() || isActive());
+      // Ahora también permite acceso si el usuario existe en Firestore (auth local).
+      return (signedIn() && userDocExists() && (isSuper() || isActive())) ||
+             (request.auth == null && userDocExists());
     }
 
     // Usuarios operativos
