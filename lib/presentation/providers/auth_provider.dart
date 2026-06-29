@@ -154,21 +154,32 @@ class AuthProvider extends ChangeNotifier {
         debugPrint('[Liris] ⚠️ Firebase Auth falló, intentando auth local...');
         debugPrint('[Liris] 🔍 Buscando usuario: "$trimmedUsuario"');
 
-        // Buscar usuario en Firestore por nombre_usuario o email
+        // Buscar usuario en Firestore por múltiples campos posibles
         QuerySnapshot<Map<String, dynamic>> userQuery;
         try {
-          // Intento 1: buscar por nombre_usuario
-          debugPrint('[Liris] 🔍 Buscando por nombre_usuario...');
+          // Intento 1: buscar por login_username
+          debugPrint('[Liris] 🔍 Buscando por login_username...');
           userQuery = await _firestore
               .collection('usuarios')
-              .where('nombre_usuario', isEqualTo: trimmedUsuario)
+              .where('login_username', isEqualTo: trimmedUsuario)
               .limit(1)
               .get();
-
           debugPrint(
-              '[Liris] 📊 Resultados por nombre_usuario: ${userQuery.docs.length}');
+              '[Liris] 📊 Resultados por login_username: ${userQuery.docs.length}');
 
-          // Intento 2: buscar por email si no se encontró por nombre_usuario
+          // Intento 2: buscar por nombre_usuario si no se encontró
+          if (userQuery.docs.isEmpty) {
+            debugPrint('[Liris] 🔍 Buscando por nombre_usuario...');
+            userQuery = await _firestore
+                .collection('usuarios')
+                .where('nombre_usuario', isEqualTo: trimmedUsuario)
+                .limit(1)
+                .get();
+            debugPrint(
+                '[Liris] 📊 Resultados por nombre_usuario: ${userQuery.docs.length}');
+          }
+
+          // Intento 3: buscar por email si no se encontró y contiene @
           if (userQuery.docs.isEmpty && trimmedUsuario.contains('@')) {
             debugPrint('[Liris] 🔍 Buscando por email...');
             userQuery = await _firestore

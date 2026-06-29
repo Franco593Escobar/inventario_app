@@ -80,9 +80,11 @@ service cloud.firestore {
         (baseAccess() && sameTenantDoc(resource.data) && isAdmin())
       );
 
-      // Permitir búsqueda por nombre_usuario o email para login (sin auth previa)
+      // Permitir búsqueda por campos específicos para login (sin auth previa)
       allow list: if superadminBypass() || (baseAccess() && (isSuper() || isAdmin())) ||
-                   (request.auth == null && resource.data.estado_activo == true);
+                   (request.auth == null && 
+                    request.query.limit <= 1 && 
+                    resource.data.estado_activo == true);
 
       allow create: if superadminBypass() || (baseAccess() && (
         isSuper() ||
