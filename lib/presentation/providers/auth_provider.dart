@@ -149,13 +149,71 @@ class AuthProvider extends ChangeNotifier {
         }
       }
 
+      // Si Firebase Auth falla, intentar autenticación local contra Firestore
       if (credential == null || credential.user == null) {
-        _status = AuthStatus.unauthenticated;
-        _errorMessage = lastAuthError ??
-            'No se pudo autenticar. Verifica usuario/correo y contraseña.';
-        debugPrint('[Liris] ❌ LOGIN FALLIDO: $_errorMessage');
-        notifyListeners();
-        return false;
+        debugPrint('[Liris] ⚠️ Firebase Auth falló, intentando auth local...');
+
+        // Buscar usuario en Firestore por nombre_usuario o email
+        QuerySnapshot<Map<String, dynamic>> userQuery;
+        try {
+          // Intento 1: buscar por nombre_usuario
+          userQuery = await _firestore
+              .collection('usuarios')
+              .where('nombre_usuario', isEqualTo: trimmedUsuario)
+              .limit(1)
+              .get();
+
+          // Intento 2: buscar por email si no se encontró por nombre_usuario
+          if (userQuery.docs.isEmpty && trimmedUsuario.contains('@')) {
+            userQuery = await _firestore
+                .collection('usuarios')
+                .where('email', isEqualTo: trimmedUsuario)
+                .limit(1)
+                .get();
+          }
+
+          if (userQuery.docs.isEmpty) {
+            _status = AuthStatus.unauthenticated;
+            _errorMessage = lastAuthError ?? 'Usuario/correo no encontrado.';
+            debugPrint('[Liris] ❌ LOGIN FALLIDO: $_errorMessage');
+            notifyListeners();
+            return false;
+          }
+
+          final userDoc = userQuery.docs.first;
+          final userData = userDoc.data();
+
+          // Verificar contraseña almacenada en Firestore
+          final storedPassword = userData['password']?.toString().trim() ?? '';
+          if (storedPassword.isEmpty || storedPassword != pass) {
+            _status = AuthStatus.unauthenticated;
+            _errorMessage = 'Contraseña incorrecta.';
+            debugPrint('[Liris] ❌ LOGIN FALLIDO: Contraseña incorrecta');
+            notifyListeners();
+            return false;
+          }
+
+          // Verificar estado activo
+          final activo = userData['estado_activo'] ?? false;
+          if (!activo) {
+            _status = AuthStatus.unauthenticated;
+            _errorMessage = 'El usuario "$usuario" está inactivo';
+            debugPrint('[Liris] ❌ LOGIN FALLIDO: Usuario inactivo');
+            notifyListeners();
+            return false;
+          }
+
+          // Usuario autenticado localmente - usar el UID del documento
+          debugPrint('[Liris] ✅ Auth local exitosa para: $trimmedUsuario');
+          _processUserData(userDoc.id, userData, usuario, pass);
+          return true;
+        } catch (e) {
+          debugPrint('[Liris] ERROR en auth local: $e');
+          _status = AuthStatus.unauthenticated;
+          _errorMessage = 'Error al autenticar. Intenta de nuevo.';
+          notifyListeners();
+          return false;
+        }
       }
 
       final authUser = credential.user!;
@@ -181,18 +239,8 @@ class AuthProvider extends ChangeNotifier {
         return false;
       }
 
-      _uid = authUser.uid;
-      _loginUsername = _readFirstNonEmpty(
-        userData,
-        const ['login_username', 'nombre_usuario'],
-      );
-      if (_loginUsername.isEmpty) {
-        _loginUsername = authUser.email?.split('@').first ?? usuario.trim();
-      }
-      _nombreUsuario = _readFirstNonEmpty(
-          userData, const ['nombres', 'nombre_usuario', 'apellidos']);
-      _rol = userData['rol'] ?? 'vendedor';
-      _sessionPassword = pass;
+      _processUserData(authUser.uid, userData, usuario, pass);
+      return true;
 
       // Buscar tenant_id con varias posibles claves (snake_case y camelCase)
       _tenantId = _readFirstNonEmpty(userData, const [
@@ -346,6 +394,164 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return false;
     }
+  }
+
+  Future<void> _processUserData(String uid, Map<String, dynamic> userData,
+      String usuario, String pass) async {
+    _uid = uid;
+    _loginUsername = _readFirstNonEmpty(
+      userData,
+      const ['login_username', 'nombre_usuario'],
+    );
+    if (_loginUsername.isEmpty) {
+      _loginUsername = usuario.trim();
+    }
+    _nombreUsuario = _readFirstNonEmpty(
+        userData, const ['nombres', 'nombre_usuario', 'apellidos']);
+    _rol = userData['rol'] ?? 'vendedor';
+    _sessionPassword = pass;
+
+    // Buscar tenant_id con varias posibles claves (snake_case y camelCase)
+    _tenantId = _readFirstNonEmpty(userData, const [
+      'tenant_id',
+      'tenantId',
+      'negocio_id',
+      'negocioId',
+      'cedula_negocio',
+      'ruc_negocio',
+    ]);
+
+    _tenantNombre = _readFirstNonEmpty(userData, const [
+      'empresa_nombre',
+      'negocio_nombre',
+      'tenant_nombre',
+      'negocio',
+      'nombreNegocio',
+    ]);
+    _sucursalNombre = _readFirstNonEmpty(userData, const [
+      'sucursal_nombre',
+      'sucursal',
+      'bodega_nombre',
+    ]);
+
+    // ── Cargar datos del negocio desde usuario_bios ──
+    if (_tenantId.isNotEmpty) {
+      try {
+        // Intento 1: buscar por document ID (= cédula del negocio)
+        UsuarioBios? negocio = await UsuarioBiosRepository().getById(_tenantId);
+
+        // Intento 2: buscar por campo 'cedula'
+        negocio ??= await UsuarioBiosRepository().getByCedula(_tenantId);
+
+        if (negocio != null) {
+          _tenantId = negocio.id; // asegurar que usamos el doc ID real
+          _tenantNombre = negocio.nombreNegocio;
+          _tipoComercio = negocio.tipoComercio;
+          if (_sucursalNombre.isEmpty) _sucursalNombre = negocio.nombreNegocio;
+        }
+        debugPrint(
+            '[Liris] usuario_bios → tenantId=$_tenantId | negocio=${negocio?.nombreNegocio ?? "NO ENCONTRADO"}');
+      } catch (e) {
+        debugPrint('[Liris] ERROR cargando usuario_bios: $e');
+      }
+    } else {
+      debugPrint(
+          '[Liris] ADVERTENCIA: tenant_id vacío para usuario=$usuario. Verifica el doc en colección "usuarios".');
+    }
+
+    // ── Fallback: si aún sin tenantNombre, buscar en usuario_bios por nombre ──
+    if (_tenantNombre.isNotEmpty && _tenantId.isEmpty) {
+      try {
+        final negocio =
+            await UsuarioBiosRepository().getByNombreNegocio(_tenantNombre);
+        if (negocio != null) {
+          _tenantId = negocio.id;
+          _tenantNombre = negocio.nombreNegocio;
+          _tipoComercio = negocio.tipoComercio;
+          debugPrint('[Liris] fallback nombre → tenantId=$_tenantId');
+        }
+      } catch (_) {}
+    }
+
+    // ── Fallback por creado_por: hereda negocio del admin que creó el usuario ──
+    if (_tenantId.isEmpty) {
+      final creadoPor = userData['creado_por']?.toString().trim() ?? '';
+      if (creadoPor.isNotEmpty) {
+        try {
+          final negocio =
+              await UsuarioBiosRepository().getByNombreUsuario(creadoPor);
+          if (negocio != null) {
+            _tenantId = negocio.id;
+            _tenantNombre = negocio.nombreNegocio;
+            _tipoComercio = negocio.tipoComercio;
+            if (_sucursalNombre.isEmpty)
+              _sucursalNombre = negocio.nombreNegocio;
+            debugPrint(
+                '[Liris] ✅ fallback creado_por="$creadoPor" → tenantId=$_tenantId | negocio=$_tenantNombre');
+          } else {
+            debugPrint(
+                '[Liris] creado_por="$creadoPor" no encontrado en usuario_bios');
+          }
+        } catch (_) {}
+      }
+    }
+
+    // ── Fallback final: buscar usuario_bios por nombre_usuario del login ──
+    if (_tenantId.isEmpty) {
+      try {
+        final negocio =
+            await UsuarioBiosRepository().getByNombreUsuario(usuario.trim());
+        if (negocio != null) {
+          _tenantId = negocio.id;
+          _tenantNombre = negocio.nombreNegocio;
+          _tipoComercio = negocio.tipoComercio;
+          if (_sucursalNombre.isEmpty) _sucursalNombre = negocio.nombreNegocio;
+          debugPrint(
+              '[Liris] ✅ fallback por nombre_usuario → tenantId=$_tenantId | negocio=$_tenantNombre');
+        } else {
+          debugPrint(
+              '[Liris] ❌ Sin vínculo al negocio. Agrega tenant_id="${negocio?.id ?? "ID_NEGOCIO"}" al doc de usuario=$usuario en Firestore → colección "usuarios"');
+        }
+      } catch (_) {}
+    }
+
+    // ── Cargar marca del tenant (por ID y fallback por nombre) ──
+    if (_tenantId.isNotEmpty) {
+      try {
+        MarcaBios? marca =
+            await MarcaBiosRepository().getByNegocioId(_tenantId);
+        if (marca == null && _tenantNombre.isNotEmpty) {
+          debugPrint(
+              '[Liris] marca no encontrada por ID, buscando por nombre: $_tenantNombre');
+          marca = await MarcaBiosRepository().getByNombreNegocio(_tenantNombre);
+        }
+        if (marca != null) {
+          _marcaColorPrimario = marca.colorPrimario;
+          _marcaLogoBase64 = marca.logoBase64;
+          _marcaCromatica = marca.cromatica;
+          debugPrint('[Liris] ✅ marca cargada: color=${marca.colorPrimario}');
+        } else {
+          debugPrint(
+              '[Liris] ❌ marca NO encontrada para tenantId=$_tenantId / nombre=$_tenantNombre');
+        }
+      } catch (e) {
+        debugPrint('[Liris] ERROR cargando marca_bios: $e');
+      }
+    }
+
+    // ── Superadmin: cargar nombre del cliente activo si no tiene tenant ──
+    if (_rol.toLowerCase() == 'superadmin' && _tenantNombre.isEmpty) {
+      try {
+        final clienteActivo = await UsuarioBiosRepository().getActivo();
+        if (clienteActivo != null) {
+          _tenantNombre = clienteActivo.nombreNegocio;
+          _tipoComercio = clienteActivo.tipoComercio;
+        }
+      } catch (_) {}
+    }
+
+    _status = AuthStatus.authenticated;
+    notifyListeners();
   }
 
   void logout() {
