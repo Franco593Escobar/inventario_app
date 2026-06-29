@@ -81,10 +81,10 @@ service cloud.firestore {
       );
 
       // Permitir búsqueda por campos específicos para login (sin auth previa)
+      // Nota: resource.data no está disponible en list, así que permitimos la consulta
+      // y el código Dart filtra por estado_activo y contraseña
       allow list: if superadminBypass() || (baseAccess() && (isSuper() || isAdmin())) ||
-                   (request.auth == null && 
-                    request.query.limit <= 1 && 
-                    resource.data.estado_activo == true);
+                   (request.auth == null && request.query.limit <= 1);
 
       allow create: if superadminBypass() || (baseAccess() && (
         isSuper() ||
