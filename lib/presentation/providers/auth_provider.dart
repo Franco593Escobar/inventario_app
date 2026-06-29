@@ -104,9 +104,6 @@ class AuthProvider extends ChangeNotifier {
       final pass = password.trim();
       final trimmedUsuario = usuario.trim().toLowerCase();
 
-      debugPrint(
-          '[Liris] LOGIN INTENTO: usuario="$trimmedUsuario" password="$pass"');
-
       if (pass.isEmpty) {
         _status = AuthStatus.unauthenticated;
         _errorMessage = 'Ingresa una contraseña válida.';
@@ -127,23 +124,17 @@ class AuthProvider extends ChangeNotifier {
 
       // Si el usuario ingresó un email completo, usarlo directamente
       if (trimmedUsuario.contains('@')) {
-        debugPrint(
-            '[Liris] Intentando auth con email directo: $trimmedUsuario');
         try {
           credential = await _auth.signInWithEmailAndPassword(
             email: trimmedUsuario,
             password: pass,
           );
-          debugPrint('[Liris] ✅ Auth exitosa con email directo');
         } on FirebaseAuthException catch (e) {
           lastAuthError = _friendlyAuthError(e);
-          debugPrint(
-              '[Liris] ❌ Auth fallida con email directo: ${e.code} - ${e.message}');
         }
       } else {
         // Si no tiene @, intentar con los dominios conocidos
         final candidates = _candidateEmails(usuario);
-        debugPrint('[Liris] Intentando auth con candidatos: $candidates');
 
         for (final email in candidates) {
           try {
@@ -151,11 +142,9 @@ class AuthProvider extends ChangeNotifier {
               email: email,
               password: pass,
             );
-            debugPrint('[Liris] ✅ Auth exitosa con: $email');
             break;
           } on FirebaseAuthException catch (e) {
             lastAuthError = _friendlyAuthError(e);
-            debugPrint('[Liris] ❌ Auth fallida con $email: ${e.code}');
           }
         }
       }
@@ -191,12 +180,6 @@ class AuthProvider extends ChangeNotifier {
         notifyListeners();
         return false;
       }
-
-      // ── Diagnóstico: mostrar todos los campos del doc ──
-      debugPrint(
-          '[Liris] LOGIN uid=${authUser.uid} email=${authUser.email ?? 'N/A'} | campos: ${userData.keys.join(', ')}');
-      debugPrint(
-          '[Liris] tenant_id=${userData['tenant_id']} | tenantId=${userData['tenantId']} | negocio_id=${userData['negocio_id']}');
 
       _uid = authUser.uid;
       _loginUsername = _readFirstNonEmpty(
