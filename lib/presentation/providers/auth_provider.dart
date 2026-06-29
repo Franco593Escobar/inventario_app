@@ -152,24 +152,32 @@ class AuthProvider extends ChangeNotifier {
       // Si Firebase Auth falla, intentar autenticación local contra Firestore
       if (credential == null || credential.user == null) {
         debugPrint('[Liris] ⚠️ Firebase Auth falló, intentando auth local...');
+        debugPrint('[Liris] 🔍 Buscando usuario: "$trimmedUsuario"');
 
         // Buscar usuario en Firestore por nombre_usuario o email
         QuerySnapshot<Map<String, dynamic>> userQuery;
         try {
           // Intento 1: buscar por nombre_usuario
+          debugPrint('[Liris] 🔍 Buscando por nombre_usuario...');
           userQuery = await _firestore
               .collection('usuarios')
               .where('nombre_usuario', isEqualTo: trimmedUsuario)
               .limit(1)
               .get();
 
+          debugPrint(
+              '[Liris] 📊 Resultados por nombre_usuario: ${userQuery.docs.length}');
+
           // Intento 2: buscar por email si no se encontró por nombre_usuario
           if (userQuery.docs.isEmpty && trimmedUsuario.contains('@')) {
+            debugPrint('[Liris] 🔍 Buscando por email...');
             userQuery = await _firestore
                 .collection('usuarios')
                 .where('email', isEqualTo: trimmedUsuario)
                 .limit(1)
                 .get();
+            debugPrint(
+                '[Liris] 📊 Resultados por email: ${userQuery.docs.length}');
           }
 
           if (userQuery.docs.isEmpty) {
