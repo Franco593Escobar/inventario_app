@@ -214,6 +214,12 @@ class AuthProvider extends ChangeNotifier {
           final userDoc = userQuery.docs.first;
           final userData = userDoc.data();
 
+          // Debug: mostrar todos los campos del documento
+          debugPrint(
+              '[Liris] 📋 Campos del usuario: ${userData.keys.join(", ")}');
+          debugPrint('[Liris] 📋 tenant_id en doc: ${userData['tenant_id']}');
+          debugPrint('[Liris] 📋 tenantId en doc: ${userData['tenantId']}');
+
           // Verificar contraseña almacenada en Firestore
           final storedPassword = userData['password']?.toString().trim() ?? '';
           if (storedPassword.isEmpty || storedPassword != pass) {
