@@ -199,9 +199,9 @@ service cloud.firestore {
 
     // Identidad del negocio y marca
     match /usuario_bios/{tenantDocId} {
-      // Permitir lectura para todos los usuarios autenticados (incluyendo auth local)
+      // Permitir lectura para todos (incluyendo auth local sin Firebase Auth)
       // Esto es necesario para cargar los datos del negocio durante el login
-      allow read: if superadminBypass() || baseAccess();
+      allow read: if superadminBypass() || baseAccess() || request.auth == null;
       allow create, update, delete: if superadminBypass() || (baseAccess() && (isSuper() || (isAdmin() && sameTenantByValue(tenantDocId))));
     }
 
