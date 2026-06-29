@@ -448,7 +448,7 @@ class AuthProvider extends ChangeNotifier {
     _rol = userData['rol'] ?? 'vendedor';
     _sessionPassword = pass;
 
-    // Buscar tenant_id con varias posibles claves (snake_case y camelCase)
+    // Buscar tenant_id en el documento de usuario
     _tenantId = _readFirstNonEmpty(userData, const [
       'tenant_id',
       'tenantId',
@@ -457,6 +457,27 @@ class AuthProvider extends ChangeNotifier {
       'cedula_negocio',
       'ruc_negocio',
     ]);
+
+    // Si no tiene tenant_id, buscar en usuario_bios por nombre_usuario
+    if (_tenantId.isEmpty) {
+      debugPrint('[Liris] 🔍 Buscando tenant_id en usuario_bios...');
+      try {
+        // Buscar por nombre_usuario (campo que existe en usuario_bios)
+        final negocio =
+            await UsuarioBiosRepository().getByNombreUsuario(usuario.trim());
+        if (negocio != null) {
+          _tenantId = negocio.id;
+          _tenantNombre = negocio.nombreNegocio;
+          _tipoComercio = negocio.tipoComercio;
+          debugPrint(
+              '[Liris] ✅ tenant_id encontrado en usuario_bios: $_tenantId | negocio=$_tenantNombre');
+        } else {
+          debugPrint('[Liris] ❌ No se encontró usuario_bios para $usuario');
+        }
+      } catch (e) {
+        debugPrint('[Liris] ERROR buscando tenant_id en usuario_bios: $e');
+      }
+    }
 
     _tenantNombre = _readFirstNonEmpty(userData, const [
       'empresa_nombre',
