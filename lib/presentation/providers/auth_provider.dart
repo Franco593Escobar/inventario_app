@@ -157,17 +157,29 @@ class AuthProvider extends ChangeNotifier {
         // Buscar usuario en Firestore por múltiples campos posibles
         QuerySnapshot<Map<String, dynamic>> userQuery;
         try {
-          // Intento 1: buscar por login_username
-          debugPrint('[Liris] 🔍 Buscando por login_username...');
+          // Intento 1: buscar por login_username_lc (campo actual en Firestore)
+          debugPrint('[Liris] 🔍 Buscando por login_username_lc...');
           userQuery = await _firestore
               .collection('usuarios')
-              .where('login_username', isEqualTo: trimmedUsuario)
+              .where('login_username_lc', isEqualTo: trimmedUsuario)
               .limit(1)
               .get();
           debugPrint(
-              '[Liris] 📊 Resultados por login_username: ${userQuery.docs.length}');
+              '[Liris] 📊 Resultados por login_username_lc: ${userQuery.docs.length}');
 
-          // Intento 2: buscar por nombre_usuario si no se encontró
+          // Intento 2: buscar por login_username (por compatibilidad)
+          if (userQuery.docs.isEmpty) {
+            debugPrint('[Liris] 🔍 Buscando por login_username...');
+            userQuery = await _firestore
+                .collection('usuarios')
+                .where('login_username', isEqualTo: trimmedUsuario)
+                .limit(1)
+                .get();
+            debugPrint(
+                '[Liris] 📊 Resultados por login_username: ${userQuery.docs.length}');
+          }
+
+          // Intento 3: buscar por nombre_usuario si no se encontró
           if (userQuery.docs.isEmpty) {
             debugPrint('[Liris] 🔍 Buscando por nombre_usuario...');
             userQuery = await _firestore
