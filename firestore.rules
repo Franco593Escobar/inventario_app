@@ -18,6 +18,11 @@ service cloud.firestore {
       return signedIn() && exists(userPath(request.auth.uid));
     }
 
+    function userExistsByUsername(username) {
+      return exists(/databases/$(database)/documents/usuarios) &&
+             get(/databases/$(database)/documents/usuarios).data.nombre_usuario == username;
+    }
+
     function me() {
       return get(userPath(request.auth.uid)).data;
     }
@@ -75,7 +80,9 @@ service cloud.firestore {
         (baseAccess() && sameTenantDoc(resource.data) && isAdmin())
       );
 
-      allow list: if superadminBypass() || (baseAccess() && (isSuper() || isAdmin()));
+      // Permitir búsqueda por nombre_usuario o email para login (sin auth previa)
+      allow list: if superadminBypass() || (baseAccess() && (isSuper() || isAdmin())) ||
+                   (request.auth == null && resource.data.estado_activo == true);
 
       allow create: if superadminBypass() || (baseAccess() && (
         isSuper() ||
